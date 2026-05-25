@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SmartStock - Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1 style="font-size:20px;">📦 SmartStock</h1>
+    <div class="avatar" id="userAvatar"></div>
+  </div>
+
+  <div class="page">
+    <!-- Cards de estatísticas -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
+      <div class="card" style="text-align:center;">
+        <p style="color:var(--text-light); font-size:14px;">Total Produtos</p>
+        <p id="totalProducts" style="font-size:32px; font-weight:800;">0</p>
+      </div>
+      <div class="card" style="text-align:center;">
+        <p style="color:var(--text-light); font-size:14px;">Estoque Baixo</p>
+        <p id="lowStock" style="font-size:32px; font-weight:800; color:var(--danger);">0</p>
+      </div>
+    </div>
+
+    <!-- Menu rápido -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <a href="produtos.html" class="card" style="text-decoration:none; color:var(--text);">
+        <div style="font-size:32px; margin-bottom:8px;">📋</div>
+        <h3>Produtos</h3>
+        <p style="color:var(--text-light); font-size:14px;">Gerenciar itens</p>
+      </a>
+      <a href="contador.html" class="card" style="text-decoration:none; color:var(--text); background:#ecfdf5; border:2px solid var(--success);">
+        <div style="font-size:32px; margin-bottom:8px;">🔢</div>
+        <h3>Contador</h3>
+        <p style="color:var(--text-light); font-size:14px;">Iniciar inventário</p>
+      </a>
+      <a href="categorias.html" class="card" style="text-decoration:none; color:var(--text);">
+        <div style="font-size:32px; margin-bottom:8px;">📁</div>
+        <h3>Categorias</h3>
+      </a>
+      <a href="relatorios.html" class="card" style="text-decoration:none; color:var(--text);">
+        <div style="font-size:32px; margin-bottom:8px;">📊</div>
+        <h3>Relatórios</h3>
+      </a>
+    </div>
+
+    <button onclick="logoutUser()" class="btn btn-secondary btn-block" style="margin-top:24px;">Sair</button>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <a href="dashboard.html" class="nav-item active">🏠 Início</a>
+    <a href="produtos.html" class="nav-item">📋 Produtos</a>
+    <a href="contador.html" class="nav-item">🔢 Contar</a>
+    <a href="relatorios.html" class="nav-item">📊 Mais</a>
+  </nav>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/database.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Verificar autenticação
+    auth.onAuthStateChanged(async user => {
+      if (!user) window.location.href = 'index.html';
+      document.getElementById('userAvatar').textContent = user.displayName?.charAt(0) || 'U';
+      
+      // Carregar stats
+      const productsSnap = await productsRef.where('active', '==', true).get();
+      document.getElementById('totalProducts').textContent = productsSnap.size;
+      
+      let lowCount = 0;
+      productsSnap.forEach(doc => {
+        if (doc.data().quantity < 5) lowCount++;
+      });
+      document.getElementById('lowStock').textContent = lowCount;
+    });
+  </script>
+</body>
+</html>
