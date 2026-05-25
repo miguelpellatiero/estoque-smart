@@ -1,22 +1,23 @@
-// Configuração do Firebase (substitua pelos seus dados)
+// js/firebase.js
+
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
-  authDomain: "seu-projeto.firebaseapp.com",
-  projectId: "seu-projeto",
-  storageBucket: "seu-projeto.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123"
+  apiKey: "AIzaSyCxxheOUlHDmkd7ABrmDzM62oiQgh-P93c",
+  authDomain: "estoque-smart-23fde.firebaseapp.com",
+  projectId: "estoque-smart-23fde",
+  storageBucket: "estoque-smart-23fde.appspot.com", // Corrigi o domínio
+  messagingSenderId: "688473593383",
+  appId: "1:688473593383:web:23183352e9b33f60e6e002"
 };
 
 // Inicializa o Firebase
 firebase.initializeApp(firebaseConfig);
 
-// Atalhos
+// Atalhos (compat)
 const auth = firebase.auth();
 const db = firebase.firestore();
 const storage = firebase.storage();
 
-// Configuração offline (funciona com internet lenta)
+// Habilita persistência offline (Firestore)
 db.enablePersistence()
   .then(() => console.log('Offline habilitado'))
   .catch(err => console.log('Erro offline:', err));
