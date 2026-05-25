@@ -1,233 +1,209 @@
-// =============================================
-// BANCO DE DADOS (Firestore)
-// =============================================
+// js/database.js
+import { 
+  collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs,
+  query, where, orderBy, limit, onSnapshot, serverTimestamp, runTransaction
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import { db, auth } from "./firebase.js";
 
 // Coleções
-const productsRef = db.collection('products');
-const categoriesRef = db.collection('categories');
-const movementsRef = db.collection('movements');
-const addressPatternsRef = db.collection('addressPatterns');
+const productsRef = collection(db, 'products');
+const categoriesRef = collection(db, 'categories');
+const movementsRef = collection(db, 'movements');
 
 // ========== PRODUTOS ==========
 
 // Criar produto com endereço automático
-async function createProduct(productData) {
+export async function createProduct(productData) {
   // Se não tiver endereço, gera automaticamente
   if (!productData.address) {
-    productData.address = await generateAddress(productData.addressPattern);
+    productData.address = await generateAddress();
   }
   
   // Se não tiver SKU, gera
   if (!productData.sku) {
     productData.sku = 'SKU-' + Math.random().toString(36).substr(2, 8).toUpperCase();
   }
-  
-  const docRef = await productsRef.add({
+
+  // Garantir que o campo nameLower exista para buscas
+  const dataToSave = {
     ...productData,
+    nameLower: (productData.name || '').toLowerCase(),
     quantity: productData.quantity || 0,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    active: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     createdBy: auth.currentUser.uid
-  });
-  
-  // Registrar movimento
-  await movementsRef.add({
+  };
+
+  const docRef = await addDoc(productsRef, dataToSave);
+
+  // Registrar movimento de entrada
+  await addDoc(movementsRef, {
     productId: docRef.id,
     type: 'in',
-    quantityChange: productData.quantity || 0,
-    newQuantity: productData.quantity || 0,
+    quantityChange: dataToSave.quantity,
+    newQuantity: dataToSave.quantity,
     performedBy: auth.currentUser.uid,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    createdAt: serverTimestamp()
   });
-  
+
   return docRef.id;
 }
 
-// Atualizar produto
-async function updateProduct(id, data) {
-  const productDoc = await productsRef.doc(id).get();
-  const oldQuantity = productDoc.data().quantity;
-  
-  await productsRef.doc(id).update({
-    ...data,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  
-  // Se quantidade mudou, registrar movimento
-  if (data.quantity !== undefined && data.quantity !== oldQuantity) {
-    const diff = data.quantity - oldQuantity;
-    await movementsRef.add({
-      productId: id,
-      type: diff > 0 ? 'in' : 'out',
-      quantityChange: diff,
-      previousQuantity: oldQuantity,
-      newQuantity: data.quantity,
-      performedBy: auth.currentUser.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+// Atualizar produto (com registro de movimento)
+export async function updateProduct(id, data) {
+  const productDocRef = doc(db, 'products', id);
+
+  // Se o nome foi alterado, atualiza também o nameLower
+  const updateData = { ...data };
+  if (updateData.name) {
+    updateData.nameLower = updateData.name.toLowerCase();
   }
+  updateData.updatedAt = serverTimestamp();
+
+  await runTransaction(db, async (transaction) => {
+    const productSnap = await transaction.get(productDocRef);
+    if (!productSnap.exists()) throw "Produto não existe";
+    
+    const oldQuantity = productSnap.data().quantity;
+    const newQuantity = updateData.quantity !== undefined ? updateData.quantity : oldQuantity;
+    
+    transaction.update(productDocRef, updateData);
+    
+    // Registrar movimento se quantidade mudou
+    if (updateData.quantity !== undefined && updateData.quantity !== oldQuantity) {
+      transaction.set(doc(movementsRef), {
+        productId: id,
+        type: newQuantity > oldQuantity ? 'in' : 'out',
+        quantityChange: newQuantity - oldQuantity,
+        previousQuantity: oldQuantity,
+        newQuantity: newQuantity,
+        performedBy: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+    }
+  });
 }
 
-// Deletar produto
-async function deleteProduct(id) {
-  await productsRef.doc(id).delete();
+// Deletar produto (soft delete)
+export async function deleteProduct(id) {
+  await updateDoc(doc(db, 'products', id), { active: false });
 }
 
 // Escutar produtos em tempo real
-function listenProducts(callback) {
-  return productsRef
-    .where('active', '==', true)
-    .orderBy('name')
-    .onSnapshot(snapshot => {
-      const products = [];
-      snapshot.forEach(doc => {
-        products.push({ id: doc.id, ...doc.data() });
-      });
-      callback(products);
-    });
+export function listenProducts(callback) {
+  const q = query(productsRef, where('active', '==', true), orderBy('name'));
+  return onSnapshot(q, (snapshot) => {
+    const products = [];
+    snapshot.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
+    callback(products);
+  });
 }
 
-// Buscar produtos
-async function searchProducts(term) {
-  // Como Firestore não tem busca full-text nativa, usamos busca por prefixo
-  // Para produção, considere usar Algolia ou Typesense
-  const termUpper = term.toUpperCase();
+// Buscar produtos (prefixo)
+export async function searchProducts(term) {
+  const termLower = term.toLowerCase();
+  const results = [];
   
-  // Busca por nome (começando com)
-  const byName = await productsRef
-    .where('name', '>=', term)
-    .where('name', '<=', term + '\uf8ff')
-    .limit(20)
-    .get();
+  // Busca por nome (usando nameLower)
+  const nameQ = query(productsRef, 
+    where('nameLower', '>=', termLower),
+    where('nameLower', '<=', termLower + '\uf8ff'),
+    limit(10)
+  );
+  const nameSnap = await getDocs(nameQ);
+  nameSnap.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
   
   // Busca por SKU
-  const bySku = await productsRef
-    .where('sku', '>=', termUpper)
-    .where('sku', '<=', termUpper + '\uf8ff')
-    .limit(20)
-    .get();
+  const skuQ = query(productsRef,
+    where('sku', '>=', term.toUpperCase()),
+    where('sku', '<=', term.toUpperCase() + '\uf8ff'),
+    limit(10)
+  );
+  const skuSnap = await getDocs(skuQ);
+  skuSnap.forEach(doc => {
+    if (!results.find(p => p.id === doc.id)) results.push({ id: doc.id, ...doc.data() });
+  });
   
-  // Busca por endereço
-  const byAddress = await productsRef
-    .where('address', '>=', term)
-    .where('address', '<=', term + '\uf8ff')
-    .limit(20)
-    .get();
-  
-  // Combina resultados
-  const productsMap = new Map();
-  byName.forEach(doc => productsMap.set(doc.id, { id: doc.id, ...doc.data() }));
-  bySku.forEach(doc => productsMap.set(doc.id, { id: doc.id, ...doc.data() }));
-  byAddress.forEach(doc => productsMap.set(doc.id, { id: doc.id, ...doc.data() }));
-  
-  return Array.from(productsMap.values());
+  return results;
 }
 
 // ========== CATEGORIAS ==========
-
-async function getCategories() {
-  const snapshot = await categoriesRef.orderBy('name').get();
+export async function getCategories() {
+  const q = query(categoriesRef, orderBy('name'));
+  const snapshot = await getDocs(q);
   const cats = [];
   snapshot.forEach(doc => cats.push({ id: doc.id, ...doc.data() }));
   return cats;
 }
 
-async function createCategory(name) {
-  await categoriesRef.add({
-    name,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
+export async function createCategory(name) {
+  await addDoc(categoriesRef, { name, createdAt: serverTimestamp() });
 }
 
 // ========== ENDEREÇAMENTO AUTOMÁTICO ==========
-
-async function generateAddress(patternId = null) {
-  // Padrão: Rua-Corredor-Prateleira-Nível (ex: 01-02-03-04)
-  // Busca último endereço usado e incrementa
-  const snapshot = await productsRef
-    .orderBy('address', 'desc')
-    .limit(1)
-    .get();
+async function generateAddress() {
+  const q = query(productsRef, orderBy('address', 'desc'), limit(1));
+  const snap = await getDocs(q);
   
-  if (snapshot.empty) {
-    return '01-01-01-01';
-  }
+  if (snap.empty) return '01-01-01-01';
   
-  const lastAddress = snapshot.docs[0].data().address;
+  const lastAddress = snap.docs[0].data().address;
   const parts = lastAddress.split('-').map(Number);
-  
-  // Incrementa o último segmento
   parts[3] = (parts[3] || 0) + 1;
-  
-  // Lógica de overflow (simplificada)
-  if (parts[3] > 99) {
-    parts[3] = 1;
-    parts[2] = (parts[2] || 0) + 1;
-  }
-  if (parts[2] > 99) {
-    parts[2] = 1;
-    parts[1] = (parts[1] || 0) + 1;
-  }
-  if (parts[1] > 99) {
-    parts[1] = 1;
-    parts[0] = (parts[0] || 0) + 1;
-  }
+  if (parts[3] > 99) { parts[3] = 1; parts[2]++; }
+  if (parts[2] > 99) { parts[2] = 1; parts[1]++; }
+  if (parts[1] > 99) { parts[1] = 1; parts[0]++; }
   
   return parts.map(p => String(p).padStart(2, '0')).join('-');
 }
 
-// ========== CONTADOR / MOVIMENTAÇÕES ==========
-
-async function updateProductCount(productId, newQuantity, photoFile = null) {
-  const productRef = productsRef.doc(productId);
-  const productDoc = await productRef.get();
-  const oldQuantity = productDoc.data().quantity;
+// ========== CONTAGEM ==========
+export async function updateProductCount(productId, newQuantity, photoFile = null) {
+  const productDocRef = doc(db, 'products', productId);
   
-  const batch = db.batch();
-  
-  // Atualiza quantidade
-  batch.update(productRef, {
-    quantity: newQuantity,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  await runTransaction(db, async (transaction) => {
+    const productSnap = await transaction.get(productDocRef);
+    if (!productSnap.exists()) throw "Produto não encontrado";
+    
+    const oldQuantity = productSnap.data().quantity;
+    transaction.update(productDocRef, {
+      quantity: newQuantity,
+      updatedAt: serverTimestamp()
+    });
+    
+    transaction.set(doc(movementsRef), {
+      productId,
+      type: 'count',
+      quantityChange: newQuantity - oldQuantity,
+      previousQuantity: oldQuantity,
+      newQuantity,
+      performedBy: auth.currentUser.uid,
+      createdAt: serverTimestamp()
+    });
   });
   
-  // Registra movimento
-  const movementRef = movementsRef.doc();
-  batch.set(movementRef, {
-    productId,
-    type: 'count',
-    quantityChange: newQuantity - oldQuantity,
-    previousQuantity: oldQuantity,
-    newQuantity,
-    performedBy: auth.currentUser.uid,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  
-  await batch.commit();
-  
-  // Upload da foto (se existir)
+  // Upload da foto se existir
   if (photoFile) {
+    const { uploadProductPhoto } = await import("./storage.js");
     await uploadProductPhoto(productId, photoFile);
   }
 }
 
 // ========== RELATÓRIOS ==========
-
-async function getReportData() {
-  const snapshot = await productsRef.where('active', '==', true).get();
+export async function getReportData() {
+  const q = query(productsRef, where('active', '==', true));
+  const snapshot = await getDocs(q);
   const data = [];
-  
   snapshot.forEach(doc => {
     const product = doc.data();
     data.push({
       SKU: product.sku,
       Nome: product.name,
-      Categoria: product.category || '',
+      Categoria: product.categoryId || '',
       Quantidade: product.quantity,
-      Endereço: product.address || '',
-      Preço: product.price || ''
+      Endereco: product.address || ''
     });
   });
-  
   return data;
 }

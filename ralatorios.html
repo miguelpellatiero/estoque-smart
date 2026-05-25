@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SmartStock - Relatórios</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Relatórios</h1>
+    <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
+  </div>
+
+  <div class="page">
+    <button id="exportBtn" class="btn btn-primary btn-block" style="margin-bottom:16px;">📥 Exportar para Excel (CSV)</button>
+    <button id="imprimirBtn" class="btn btn-secondary btn-block">🖨️ Imprimir lista</button>
+
+    <div id="tabelaRelatorio" style="margin-top:24px;"></div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="dashboard.html" class="nav-item">🏠 Início</a>
+    <a href="produtos.html" class="nav-item">📋 Produtos</a>
+    <a href="contador.html" class="nav-item">🔢 Contar</a>
+    <a href="relatorios.html" class="nav-item active">📊 Relatórios</a>
+  </nav>
+
+  <script type="module">
+    import { auth, db } from "./js/firebase.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { getCategories } from "./js/database.js";
+    import { exportToExcel, showToast } from "./js/utils.js";
+
+    onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
+
+    let dadosRelatorio = [];
+
+    async function carregarDados() {
+      const productsRef = collection(db, 'products');
+      const q = query(productsRef, where('active', '==', true));
+      const snapshot = await getDocs(q);
+      dadosRelatorio = [];
+      snapshot.forEach(doc => {
+        const p = doc.data();
+        dadosRelatorio.push({
+          SKU: p.sku,
+          Nome: p.name,
+          Categoria: p.categoryId || '',
+          Quantidade: p.quantity,
+          Endereco: p.address || ''
+        });
+      });
+
+      // Renderizar tabela
+      const tabela = document.getElementById('tabelaRelatorio');
+      tabela.innerHTML = `
+        <table style="width:100%; border-collapse:collapse;">
+          <tr style="background:var(--primary); color:white;">
+            <th style="padding:8px;">SKU</th><th>Nome</th><th>Qtd</th><th>Endereço</th>
+          </tr>
+          ${dadosRelatorio.map(d => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:8px;">${d.SKU}</td>
+              <td>${d.Nome}</td>
+              <td>${d.Quantidade}</td>
+              <td>${d.Endereco}</td>
+            </tr>
+          `).join('')}
+        </table>
+      `;
+    }
+
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      if (dadosRelatorio.length === 0) return showToast('Nenhum dado', 'error');
+      exportToExcel(dadosRelatorio);
+      showToast('Exportado com sucesso');
+    });
+
+    document.getElementById('imprimirBtn').addEventListener('click', () => {
+      window.print();
+    });
+
+    carregarDados();
+  </script>
+</body>
+</html>

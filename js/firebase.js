@@ -1,23 +1,22 @@
 // js/firebase.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCxxheOUlHDmkd7ABrmDzM62oiQgh-P93c",
   authDomain: "estoque-smart-23fde.firebaseapp.com",
   projectId: "estoque-smart-23fde",
-  storageBucket: "estoque-smart-23fde.appspot.com", // Corrigi o domínio
+  storageBucket: "estoque-smart-23fde.appspot.com", // corrigido
   messagingSenderId: "688473593383",
-  appId: "1:688473593383:web:23183352e9b33f60e6e002"
+  appId: "1:688473593383:web:16351aacdfef0892e6e002"
 };
 
-// Inicializa o Firebase
-firebase.initializeApp(firebaseConfig);
+// Inicializa apenas uma vez
+const app = initializeApp(firebaseConfig);
 
-// Atalhos (compat)
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
-
-// Habilita persistência offline (Firestore)
-db.enablePersistence()
-  .then(() => console.log('Offline habilitado'))
-  .catch(err => console.log('Erro offline:', err));
+// Exporta as instâncias que serão usadas por outros módulos
+export const auth = getAuth(app);
+export const db = getFirestore(app);
+export const storage = getStorage(app);

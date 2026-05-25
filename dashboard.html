@@ -8,7 +8,7 @@
 </head>
 <body>
   <div class="header">
-    <h1 style="font-size:20px;">📦 SmartStock</h1>
+    <h1>📦 SmartStock</h1>
     <div class="avatar" id="userAvatar"></div>
   </div>
 
@@ -47,7 +47,7 @@
       </a>
     </div>
 
-    <button onclick="logoutUser()" class="btn btn-secondary btn-block" style="margin-top:24px;">Sair</button>
+    <button id="logoutBtn" class="btn btn-secondary btn-block" style="margin-top:24px;">Sair</button>
   </div>
 
   <!-- Bottom Nav -->
@@ -58,29 +58,46 @@
     <a href="relatorios.html" class="nav-item">📊 Mais</a>
   </nav>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="js/firebase.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/database.js"></script>
-  <script src="js/utils.js"></script>
-  <script>
-    // Verificar autenticação
-    auth.onAuthStateChanged(async user => {
+  <script type="module">
+    import { auth, db } from "./js/firebase.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { logoutUser, isMaster } from "./js/auth.js";
+
+    onAuthStateChanged(auth, async (user) => {
       if (!user) window.location.href = 'index.html';
       document.getElementById('userAvatar').textContent = user.displayName?.charAt(0) || 'U';
-      
-      // Carregar stats
-      const productsSnap = await productsRef.where('active', '==', true).get();
-      document.getElementById('totalProducts').textContent = productsSnap.size;
-      
-      let lowCount = 0;
-      productsSnap.forEach(doc => {
-        if (doc.data().quantity < 5) lowCount++;
+
+      // Carregar estatísticas
+      const productsRef = collection(db, 'products');
+      const activeQ = query(productsRef, where('active', '==', true));
+      const snapshot = await getDocs(activeQ);
+
+      let total = snapshot.size;
+      let low = 0;
+      snapshot.forEach(doc => {
+        if (doc.data().quantity < 5) low++;
       });
-      document.getElementById('lowStock').textContent = lowCount;
+
+      document.getElementById('totalProducts').textContent = total;
+      document.getElementById('lowStock').textContent = low;
+
+      // Mostrar link admin se master
+      const master = await isMaster();
+      if (master) {
+        const adminLink = document.createElement('a');
+        adminLink.href = 'admin.html';
+        adminLink.className = 'card';
+        adminLink.style.textDecoration = 'none';
+        adminLink.style.color = 'var(--text)';
+        adminLink.style.display = 'block';
+        adminLink.style.marginTop = '16px';
+        adminLink.innerHTML = '<div style="font-size:32px; margin-bottom:8px;">⚙️</div><h3>Administração</h3>';
+        document.querySelector('.page').insertBefore(adminLink, document.getElementById('logoutBtn'));
+      }
     });
+
+    document.getElementById('logoutBtn').addEventListener('click', logoutUser);
   </script>
 </body>
 </html>

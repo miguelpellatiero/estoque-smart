@@ -1,73 +1,79 @@
-// =============================================
-// AUTENTICAÇÃO
-// =============================================
+// js/auth.js
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  onAuthStateChanged,
+  signOut,
+  updateProfile
+} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+import { auth, db } from "./firebase.js";
 
-// Verifica estado do usuário
-auth.onAuthStateChanged(user => {
+// Verifica estado do usuário (redireciona se necessário)
+onAuthStateChanged(auth, async (user) => {
   if (user) {
-    // Salva dados do usuário no localStorage
     localStorage.setItem('user', JSON.stringify({
       uid: user.uid,
       email: user.email,
       displayName: user.displayName
     }));
-    
-    // Redireciona se estiver na página de login
+
     if (window.location.pathname.includes('index.html') || 
-        window.location.pathname === '/') {
+        window.location.pathname === '/' || 
+        window.location.pathname === '/index.html') {
       window.location.href = 'dashboard.html';
     }
   } else {
     localStorage.removeItem('user');
-    // Se não estiver autenticado e não estiver no login, redireciona
     if (!window.location.pathname.includes('index.html') && 
-        window.location.pathname !== '/') {
+        window.location.pathname !== '/' && 
+        window.location.pathname !== '/index.html') {
       window.location.href = 'index.html';
     }
   }
 });
 
 // Login
-async function loginUser(email, password) {
+export async function loginUser(email, password) {
   try {
-    const result = await auth.signInWithEmailAndPassword(email, password);
-    return result.user;
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    return userCredential.user;
   } catch (error) {
     throw error;
   }
 }
 
 // Cadastro
-async function registerUser(email, password, name) {
+export async function registerUser(email, password, name) {
   try {
-    const result = await auth.createUserWithEmailAndPassword(email, password);
-    await result.user.updateProfile({ displayName: name });
-    
-    // Criar perfil no Firestore
-    await db.collection('profiles').doc(result.user.uid).set({
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(userCredential.user, { displayName: name });
+
+    // Cria perfil no Firestore
+    await setDoc(doc(db, 'profiles', userCredential.user.uid), {
       fullName: name,
       email: email,
-      role: 'user', // primeiro usuário vira 'master' manualmente
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      role: 'user',
+      createdAt: serverTimestamp()
     });
-    
-    return result.user;
+
+    return userCredential.user;
   } catch (error) {
     throw error;
   }
 }
 
 // Logout
-async function logoutUser() {
-  await auth.signOut();
+export async function logoutUser() {
+  await signOut(auth);
   window.location.href = 'index.html';
 }
 
 // Verificar se é master
-async function isMaster() {
+export async function isMaster() {
   const user = auth.currentUser;
   if (!user) return false;
-  
-  const doc = await db.collection('profiles').doc(user.uid).get();
-  return doc.exists && doc.data().role === 'master';
+
+  const docSnap = await getDoc(doc(db, 'profiles', user.uid));
+  return docSnap.exists() && docSnap.data().role === 'master';
 }

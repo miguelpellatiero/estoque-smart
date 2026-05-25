@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>SmartStock - Admin</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="header">
+    <h1>⚙️ Administração</h1>
+    <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
+  </div>
+
+  <div class="page">
+    <div class="card">
+      <h2>Gerenciar Papéis de Usuário</h2>
+      <div id="listaUsuarios" style="margin-top:12px;"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./js/firebase.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { isMaster } from "./js/auth.js";
+    import { showToast } from "./js/utils.js";
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return window.location.href = 'index.html';
+      const master = await isMaster();
+      if (!master) {
+        showToast('Acesso negado', 'error');
+        setTimeout(() => window.location.href = 'dashboard.html', 2000);
+        return;
+      }
+      carregarUsuarios();
+    });
+
+    async function carregarUsuarios() {
+      const profilesRef = collection(db, 'profiles');
+      const snapshot = await getDocs(profilesRef);
+      const container = document.getElementById('listaUsuarios');
+      container.innerHTML = '';
+
+      snapshot.forEach(docSnap => {
+        const profile = docSnap.data();
+        container.innerHTML += `
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div>
+              <strong>${profile.fullName}</strong><br>
+              <small>${profile.email} | Role: ${profile.role}</small>
+            </div>
+            <select data-uid="${docSnap.id}" class="roleSelect" style="padding:4px; border-radius:8px;">
+              <option value="user" ${profile.role==='user'?'selected':''}>Usuário</option>
+              <option value="master" ${profile.role==='master'?'selected':''}>Master</option>
+            </select>
+          </div>
+        `;
+      });
+
+      document.querySelectorAll('.roleSelect').forEach(select => {
+        select.addEventListener('change', async (e) => {
+          const uid = e.target.getAttribute('data-uid');
+          const newRole = e.target.value;
+          await updateDoc(doc(db, 'profiles', uid), { role: newRole });
+          showToast('Papel atualizado');
+        });
+      });
+    }
+  </script>
+</body>
+</html>
