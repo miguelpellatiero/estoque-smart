@@ -9,44 +9,97 @@
   <meta name="theme-color" content="#6366f1">
 </head>
 <body>
-  <!-- conteúdo igual ao anterior (código HTML do formulário) -->
-  <!-- ... -->
+  <main class="auth-page">
+    <section class="auth-panel">
+      <div class="brand-mark">SS</div>
+      <h1>SmartStock</h1>
+      <p class="auth-subtitle">Controle de estoque simples para sua equipe.</p>
 
-  <!-- Agora usamos um único script type="module" que importa tudo -->
+      <div id="loginForm">
+        <input type="email" id="loginEmail" class="input" placeholder="E-mail" autocomplete="email">
+        <input type="password" id="loginPassword" class="input" placeholder="Senha" autocomplete="current-password">
+        <button class="btn btn-primary btn-block" onclick="handleLogin()">Entrar</button>
+        <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="handleDemoLogin()">Entrar como teste</button>
+        <button class="link-button" onclick="showRegister()">Criar uma conta</button>
+      </div>
+
+      <div id="registerForm" style="display:none;">
+        <input type="text" id="regName" class="input" placeholder="Nome" autocomplete="name">
+        <input type="email" id="regEmail" class="input" placeholder="E-mail" autocomplete="email">
+        <input type="password" id="regPassword" class="input" placeholder="Senha" autocomplete="new-password">
+        <button class="btn btn-primary btn-block" onclick="handleRegister()">Cadastrar</button>
+        <button class="link-button" onclick="showLogin()">Já tenho conta</button>
+      </div>
+    </section>
+  </main>
+
   <script type="module">
     import { loginUser, registerUser } from "./js/auth.js";
     import { showToast } from "./js/utils.js";
 
-    // deixe as funções globais para os botões
+    function getFirebaseMessage(error) {
+      const code = error?.code || '';
+      const messages = {
+        'auth/operation-not-allowed': 'Ative Email/Senha no Firebase Authentication.',
+        'auth/invalid-credential': 'E-mail ou senha invalidos.',
+        'auth/email-already-in-use': 'Este e-mail ja existe. Tente entrar com a senha cadastrada.',
+        'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+        'auth/network-request-failed': 'Falha de rede ao conectar no Firebase.'
+      };
+      return messages[code] || error?.message || 'Erro ao conectar no Firebase.';
+    }
+
     window.showRegister = function() {
       document.getElementById('loginForm').style.display = 'none';
       document.getElementById('registerForm').style.display = 'block';
     };
+
     window.showLogin = function() {
       document.getElementById('registerForm').style.display = 'none';
       document.getElementById('loginForm').style.display = 'block';
     };
 
     window.handleLogin = async function() {
-      const email = document.getElementById('loginEmail').value;
+      const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
+      if (!email || !password) return showToast('Informe e-mail e senha', 'error');
+
       try {
         await loginUser(email, password);
         window.location.href = 'dashboard.html';
       } catch (e) {
-        showToast(e.message, 'error');
+        showToast(getFirebaseMessage(e), 'error');
       }
     };
 
     window.handleRegister = async function() {
-      const name = document.getElementById('regName').value;
-      const email = document.getElementById('regEmail').value;
+      const name = document.getElementById('regName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
       const password = document.getElementById('regPassword').value;
+      if (!name || !email || !password) return showToast('Preencha todos os campos', 'error');
+
       try {
         await registerUser(email, password, name);
         window.location.href = 'dashboard.html';
       } catch (e) {
-        showToast(e.message, 'error');
+        showToast(getFirebaseMessage(e), 'error');
+      }
+    };
+
+    window.handleDemoLogin = async function() {
+      const demoEmail = 'teste@smartstock.com';
+      const demoPassword = '123456';
+
+      try {
+        await loginUser(demoEmail, demoPassword);
+        window.location.href = 'dashboard.html';
+      } catch (loginError) {
+        try {
+          await registerUser(demoEmail, demoPassword, 'Usuario Teste');
+          window.location.href = 'dashboard.html';
+        } catch (registerError) {
+          showToast(getFirebaseMessage(registerError || loginError), 'error');
+        }
       }
     };
   </script>

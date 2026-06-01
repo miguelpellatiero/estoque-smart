@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -8,21 +8,21 @@
 </head>
 <body>
   <div class="header">
-    <h1>⚙️ Administração</h1>
+    <h1>âš™ï¸ AdministraÃ§Ã£o</h1>
     <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
   </div>
 
   <div class="page">
     <div class="card">
-      <h2>Gerenciar Papéis de Usuário</h2>
+      <h2>Gerenciar PapÃ©is de UsuÃ¡rio</h2>
       <div id="listaUsuarios" style="margin-top:12px;"></div>
     </div>
   </div>
 
   <script type="module">
     import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-    import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { isMaster } from "./js/auth.js";
     import { showToast } from "./js/utils.js";
 
@@ -52,7 +52,7 @@
               <small>${profile.email} | Role: ${profile.role}</small>
             </div>
             <select data-uid="${docSnap.id}" class="roleSelect" style="padding:4px; border-radius:8px;">
-              <option value="user" ${profile.role==='user'?'selected':''}>Usuário</option>
+              <option value="user" ${profile.role==='user'?'selected':''}>UsuÃ¡rio</option>
               <option value="master" ${profile.role==='master'?'selected':''}>Master</option>
             </select>
           </div>

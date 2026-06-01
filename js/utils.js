@@ -1,4 +1,3 @@
-// js/utils.js
 export function formatDate(timestamp) {
   if (!timestamp) return '';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
@@ -6,14 +5,14 @@ export function formatDate(timestamp) {
 }
 
 export function exportToExcel(data, filename = 'estoque') {
-  let csv = 'SKU;Nome;Categoria;Quantidade;Endereço\n';
+  let csv = 'SKU;Nome;Categoria;Quantidade;Endereco\n';
   data.forEach(item => {
     csv += `${item.SKU};${item.Nome};${item.Categoria};${item.Quantidade};${item.Endereco}\n`;
   });
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `${filename}_${new Date().toISOString().slice(0,10)}.csv`;
+  link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
 }
 

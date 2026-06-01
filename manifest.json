@@ -1,7 +1,7 @@
 {
   "name": "SmartStock",
   "short_name": "SmartStock",
-  "start_url": "/index.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#f9fafb",
   "theme_color": "#6366f1",

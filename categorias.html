@@ -1,231 +1,68 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SmartStock - Produtos</title>
+  <title>SmartStock - Categorias</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="header">
-    <h1>📋 Produtos</h1>
+    <h1>Categorias</h1>
     <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
   </div>
 
   <div class="page">
-    <button id="novoProdutoBtn" class="btn btn-primary btn-block" style="margin-bottom:16px;">➕ Novo Produto</button>
-
-    <input type="text" id="searchInput" class="input" placeholder="🔍 Buscar produtos...">
-    <div id="listaProdutos"></div>
-  </div>
-
-  <!-- Modal de cadastro/edição (oculto) -->
-  <div id="modalProduto" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center;">
-    <div style="background:white; border-radius:16px; padding:24px; max-width:500px; width:90%; max-height:90vh; overflow-y:auto;">
-      <h2 id="modalTitle">Novo Produto</h2>
-      <input type="text" id="prodName" class="input" placeholder="Nome do produto" style="margin-bottom:12px;">
-      <input type="text" id="prodSku" class="input" placeholder="SKU (deixe em branco para auto)" style="margin-bottom:12px;">
-      <select id="prodCategory" class="input" style="margin-bottom:12px;">
-        <option value="">Sem categoria</option>
-      </select>
-      <input type="number" id="prodQty" class="input" placeholder="Quantidade inicial" value="0" min="0" style="margin-bottom:12px;">
-      <input type="text" id="prodAddress" class="input" placeholder="Endereço (automático se vazio)" style="margin-bottom:12px;">
-      <input type="file" id="prodPhoto" accept="image/*" capture="environment" multiple style="margin-bottom:12px;">
-      <div style="display:flex; gap:8px;">
-        <button id="salvarProdutoBtn" class="btn btn-primary" style="flex:1;">Salvar</button>
-        <button onclick="document.getElementById('modalProduto').style.display='none'" class="btn btn-secondary" style="flex:1;">Cancelar</button>
-      </div>
+    <div class="card">
+      <input type="text" id="categoryName" class="input" placeholder="Nome da categoria">
+      <button id="addCategoryBtn" class="btn btn-primary btn-block" style="margin-top:12px;">Adicionar</button>
     </div>
+    <div id="listaCategorias"></div>
   </div>
 
   <nav class="bottom-nav">
-    <a href="dashboard.html" class="nav-item">🏠 Início</a>
-    <a href="produtos.html" class="nav-item active">📋 Produtos</a>
-    <a href="contador.html" class="nav-item">🔢 Contar</a>
-    <a href="relatorios.html" class="nav-item">📊 Mais</a>
+    <a href="dashboard.html" class="nav-item">Inicio</a>
+    <a href="produtos.html" class="nav-item">Produtos</a>
+    <a href="contador.html" class="nav-item">Contar</a>
+    <a href="relatorios.html" class="nav-item">Relatorios</a>
   </nav>
 
   <script type="module">
     import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-    import { collection, query, where, orderBy, onSnapshot, doc, getDoc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-    import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
-    import { storage } from "./js/firebase.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+    import { createCategory } from "./js/database.js";
     import { showToast } from "./js/utils.js";
 
     onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
 
-    let produtos = [];
-    let editingId = null;
+    const lista = document.getElementById('listaCategorias');
+    const input = document.getElementById('categoryName');
 
-    // Carregar categorias para o select
-    async function carregarCategorias() {
-      const catRef = collection(db, 'categories');
-      const q = query(catRef, orderBy('name'));
-      const snap = await getDocs(q);
-      const select = document.getElementById('prodCategory');
-      select.innerHTML = '<option value="">Sem categoria</option>';
-      snap.forEach(doc => {
-        const opt = document.createElement('option');
-        opt.value = doc.id;
-        opt.textContent = doc.data().name;
-        select.appendChild(opt);
-      });
-    }
-
-    // Escutar produtos em tempo real
-    const q = query(collection(db, 'products'), where('active', '==', true), orderBy('name'));
-    onSnapshot(q, snapshot => {
-      produtos = [];
-      snapshot.forEach(doc => produtos.push({ id: doc.id, ...doc.data() }));
-      renderizarLista();
-    });
-
-    function renderizarLista() {
-      const container = document.getElementById('listaProdutos');
-      container.innerHTML = produtos.map(p => `
-        <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <strong>${p.name}</strong> <small>(${p.sku})</small><br>
-            <small style="color:var(--text-light);">📍 ${p.address || 'N/A'} | Qtd: ${p.quantity}</small>
-          </div>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-secondary" style="padding:6px 12px;" data-id="${p.id}">✏️</button>
-            <button class="btn btn-danger" style="padding:6px 12px;" data-id="${p.id}">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-
-      // Eventos de clique nos botões
-      container.querySelectorAll('button[data-id]').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const id = e.target.getAttribute('data-id');
-          if (e.target.textContent.includes('✏️')) editarProduto(id);
-          else if (e.target.textContent.includes('🗑️')) excluirProduto(id);
-        });
-      });
-    }
-
-    window.editarProduto = async function(id) {
-      const prod = produtos.find(p => p.id === id);
-      if (!prod) return;
-      editingId = id;
-      document.getElementById('modalTitle').textContent = 'Editar Produto';
-      document.getElementById('prodName').value = prod.name;
-      document.getElementById('prodSku').value = prod.sku;
-      document.getElementById('prodCategory').value = prod.categoryId || '';
-      document.getElementById('prodQty').value = prod.quantity;
-      document.getElementById('prodAddress').value = prod.address || '';
-      document.getElementById('modalProduto').style.display = 'flex';
-    };
-
-    window.excluirProduto = async function(id) {
-      if (!confirm('Desativar este produto?')) return;
-      await updateDoc(doc(db, 'products', id), { active: false });
-      showToast('Produto removido');
-    };
-
-    document.getElementById('novoProdutoBtn').addEventListener('click', () => {
-      editingId = null;
-      document.getElementById('modalTitle').textContent = 'Novo Produto';
-      document.getElementById('prodName').value = '';
-      document.getElementById('prodSku').value = '';
-      document.getElementById('prodCategory').value = '';
-      document.getElementById('prodQty').value = '0';
-      document.getElementById('prodAddress').value = '';
-      document.getElementById('prodPhoto').value = '';
-      document.getElementById('modalProduto').style.display = 'flex';
-    });
-
-    document.getElementById('salvarProdutoBtn').addEventListener('click', async () => {
-      const name = document.getElementById('prodName').value.trim();
-      if (!name) return showToast('Nome obrigatório', 'error');
-
-      const sku = document.getElementById('prodSku').value.trim() || 'SKU-' + Math.random().toString(36).substr(2,8).toUpperCase();
-      const categoryId = document.getElementById('prodCategory').value;
-      const quantity = parseInt(document.getElementById('prodQty').value) || 0;
-      const address = document.getElementById('prodAddress').value.trim() || null;
-      const photoInput = document.getElementById('prodPhoto');
-      const files = photoInput.files;
-
-      const productData = {
-        name,
-        nameLower: name.toLowerCase(),
-        sku,
-        categoryId: categoryId || null,
-        quantity,
-        address,
-        active: true,
-        updatedAt: serverTimestamp()
-      };
-
-      try {
-        if (editingId) {
-          // Atualizar
-          await updateDoc(doc(db, 'products', editingId), productData);
-          showToast('Produto atualizado');
-        } else {
-          // Criar novo
-          productData.createdAt = serverTimestamp();
-          productData.createdBy = auth.currentUser.uid;
-          if (!address) {
-            // Gerar endereço automático
-            const q = query(collection(db, 'products'), orderBy('address', 'desc'), limit(1));
-            const snap = await getDocs(q);
-            let newAddr = '01-01-01-01';
-            if (!snap.empty) {
-              const last = snap.docs[0].data().address;
-              const parts = last.split('-').map(Number);
-              parts[3] = (parts[3]||0)+1;
-              if (parts[3]>99) { parts[3]=1; parts[2]++; }
-              if (parts[2]>99) { parts[2]=1; parts[1]++; }
-              if (parts[1]>99) { parts[1]=1; parts[0]++; }
-              newAddr = parts.map(p => String(p).padStart(2,'0')).join('-');
-            }
-            productData.address = newAddr;
-          }
-          const docRef = await addDoc(collection(db, 'products'), productData);
-          // Upload das fotos
-          for (const file of files) {
-            const storageRef = ref(storage, `products/${docRef.id}/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
-          }
-          showToast('Produto criado');
-        }
-        document.getElementById('modalProduto').style.display = 'none';
-      } catch (e) {
-        showToast('Erro: ' + e.message, 'error');
+    function renderCategorias(snapshot) {
+      if (snapshot.empty) {
+        lista.innerHTML = '<div class="card"><p>Nenhuma categoria cadastrada.</p></div>';
+        return;
       }
-    });
 
-    // Busca simples local
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase();
-      const filtrados = produtos.filter(p => p.nameLower?.includes(term) || p.sku.toLowerCase().includes(term) || (p.address && p.address.includes(term)));
-      const container = document.getElementById('listaProdutos');
-      container.innerHTML = filtrados.map(p => `
-        <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-          <div>
-            <strong>${p.name}</strong> <small>(${p.sku})</small><br>
-            <small style="color:var(--text-light);">📍 ${p.address || 'N/A'} | Qtd: ${p.quantity}</small>
-          </div>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-secondary" style="padding:6px 12px;" data-id="${p.id}">✏️</button>
-            <button class="btn btn-danger" style="padding:6px 12px;" data-id="${p.id}">🗑️</button>
-          </div>
-        </div>
-      `).join('');
-      // Reaplicar eventos
-      container.querySelectorAll('button[data-id]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const id = e.target.getAttribute('data-id');
-          if (e.target.textContent.includes('✏️')) editarProduto(id);
-          else if (e.target.textContent.includes('🗑️')) excluirProduto(id);
-        });
+      lista.innerHTML = '';
+      snapshot.forEach(docSnap => {
+        const cat = docSnap.data();
+        lista.innerHTML += `<div class="card"><strong>${cat.name}</strong></div>`;
       });
+    }
+
+    document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+      const name = input.value.trim();
+      if (!name) return showToast('Informe o nome da categoria', 'error');
+      await createCategory(name);
+      input.value = '';
+      showToast('Categoria criada');
     });
 
-    carregarCategorias();
+    const q = query(collection(db, 'categories'), orderBy('name'));
+    onSnapshot(q, renderCategorias);
   </script>
 </body>
 </html>
+

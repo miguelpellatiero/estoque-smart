@@ -13,7 +13,7 @@
   --text: #111827;
   --text-light: #6b7280;
   --border: #e5e7eb;
-  --radius: 16px;
+  --radius: 8px;
   --shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
@@ -30,6 +30,57 @@ body {
   line-height: 1.5;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 380px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  margin-bottom: 16px;
+}
+
+.auth-subtitle {
+  color: var(--text-light);
+  margin: 8px 0 20px;
+}
+
+.auth-panel .input,
+.modal-content .input {
+  margin-bottom: 12px;
+}
+
+.link-button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 700;
+  padding: 14px 0 0;
+  cursor: pointer;
 }
 
 /* ========== COMPONENTES ========== */
@@ -94,6 +145,73 @@ body {
   padding: 20px;
   margin-bottom: 16px;
   box-shadow: var(--shadow);
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-content {
+  background: white;
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-bottom: 16px;
+}
+
+.modal-actions,
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.product-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.product-row .btn {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+th {
+  background: var(--primary);
+  color: white;
 }
 
 /* ========== COUNTER (Função CALCULAR) ========== */
@@ -288,5 +406,20 @@ body {
   
   .desktop-sidebar {
     display: flex;
+  }
+}
+
+@media (max-width: 520px) {
+  .product-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .row-actions {
+    width: 100%;
+  }
+
+  .row-actions .btn {
+    flex: 1;
   }
 }

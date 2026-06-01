@@ -1,6 +1,6 @@
-// js/storage.js
-import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
-import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+﻿// js/storage.js
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { storage, auth, db } from "./firebase.js";
 
 export async function uploadProductPhoto(productId, file) {
@@ -19,8 +19,8 @@ export async function uploadProductPhoto(productId, file) {
 }
 
 export async function getProductPhotos(productId) {
-  // Será usado nos detalhes do produto
-  const { getDocs, query, where, orderBy } = await import("https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js");
+  // SerÃ¡ usado nos detalhes do produto
+  const { getDocs, query, where, orderBy } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
   const photosRef = collection(db, 'productPhotos');
   const q = query(photosRef, where('productId', '==', productId), orderBy('createdAt', 'desc'));
   const snapshot = await getDocs(q);

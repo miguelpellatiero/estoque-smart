@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -8,12 +8,12 @@
 </head>
 <body>
   <div class="header">
-    <h1>📦 SmartStock</h1>
+    <h1>ðŸ“¦ SmartStock</h1>
     <div class="avatar" id="userAvatar"></div>
   </div>
 
   <div class="page">
-    <!-- Cards de estatísticas -->
+    <!-- Cards de estatÃ­sticas -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
       <div class="card" style="text-align:center;">
         <p style="color:var(--text-light); font-size:14px;">Total Produtos</p>
@@ -25,25 +25,25 @@
       </div>
     </div>
 
-    <!-- Menu rápido -->
+    <!-- Menu rÃ¡pido -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
       <a href="produtos.html" class="card" style="text-decoration:none; color:var(--text);">
-        <div style="font-size:32px; margin-bottom:8px;">📋</div>
+        <div style="font-size:32px; margin-bottom:8px;">ðŸ“‹</div>
         <h3>Produtos</h3>
         <p style="color:var(--text-light); font-size:14px;">Gerenciar itens</p>
       </a>
       <a href="contador.html" class="card" style="text-decoration:none; color:var(--text); background:#ecfdf5; border:2px solid var(--success);">
-        <div style="font-size:32px; margin-bottom:8px;">🔢</div>
+        <div style="font-size:32px; margin-bottom:8px;">ðŸ”¢</div>
         <h3>Contador</h3>
-        <p style="color:var(--text-light); font-size:14px;">Iniciar inventário</p>
+        <p style="color:var(--text-light); font-size:14px;">Iniciar inventÃ¡rio</p>
       </a>
       <a href="categorias.html" class="card" style="text-decoration:none; color:var(--text);">
-        <div style="font-size:32px; margin-bottom:8px;">📁</div>
+        <div style="font-size:32px; margin-bottom:8px;">ðŸ“</div>
         <h3>Categorias</h3>
       </a>
       <a href="relatorios.html" class="card" style="text-decoration:none; color:var(--text);">
-        <div style="font-size:32px; margin-bottom:8px;">📊</div>
-        <h3>Relatórios</h3>
+        <div style="font-size:32px; margin-bottom:8px;">ðŸ“Š</div>
+        <h3>RelatÃ³rios</h3>
       </a>
     </div>
 
@@ -52,23 +52,23 @@
 
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
-    <a href="dashboard.html" class="nav-item active">🏠 Início</a>
-    <a href="produtos.html" class="nav-item">📋 Produtos</a>
-    <a href="contador.html" class="nav-item">🔢 Contar</a>
-    <a href="relatorios.html" class="nav-item">📊 Mais</a>
+    <a href="dashboard.html" class="nav-item active">ðŸ  InÃ­cio</a>
+    <a href="produtos.html" class="nav-item">ðŸ“‹ Produtos</a>
+    <a href="contador.html" class="nav-item">ðŸ”¢ Contar</a>
+    <a href="relatorios.html" class="nav-item">ðŸ“Š Mais</a>
   </nav>
 
   <script type="module">
     import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-    import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { logoutUser, isMaster } from "./js/auth.js";
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) window.location.href = 'index.html';
       document.getElementById('userAvatar').textContent = user.displayName?.charAt(0) || 'U';
 
-      // Carregar estatísticas
+      // Carregar estatÃ­sticas
       const productsRef = collection(db, 'products');
       const activeQ = query(productsRef, where('active', '==', true));
       const snapshot = await getDocs(activeQ);
@@ -92,7 +92,7 @@
         adminLink.style.color = 'var(--text)';
         adminLink.style.display = 'block';
         adminLink.style.marginTop = '16px';
-        adminLink.innerHTML = '<div style="font-size:32px; margin-bottom:8px;">⚙️</div><h3>Administração</h3>';
+        adminLink.innerHTML = '<div style="font-size:32px; margin-bottom:8px;">âš™ï¸</div><h3>AdministraÃ§Ã£o</h3>';
         document.querySelector('.page').insertBefore(adminLink, document.getElementById('logoutBtn'));
       }
     });

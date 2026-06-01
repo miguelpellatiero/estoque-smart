@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -7,70 +7,133 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <!-- mesma estrutura HTML do contador anterior -->
+  <div class="header">
+    <h1>Contador</h1>
+    <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
+  </div>
+
+  <div class="page">
+    <input type="text" id="searchProduct" class="input" placeholder="Buscar por nome ou SKU...">
+    <div id="searchResults" style="margin-top:16px;"></div>
+
+    <div id="selectedProductInfo" class="card" style="display:none;">
+      <h2 id="productName"></h2>
+      <p id="productSku"></p>
+      <p id="productAddress"></p>
+      <p>Estoque atual: <strong id="productCurrentQty"></strong></p>
+    </div>
+
+    <div id="counterArea" class="counter-container" style="display:none;">
+      <div class="counter-buttons">
+        <button id="minusBtn" class="counter-btn counter-btn-minus">-</button>
+        <div id="countDisplay" class="counter-display">0</div>
+        <button id="plusBtn" class="counter-btn counter-btn-plus">+</button>
+      </div>
+      <input type="number" id="manualQty" class="input" min="0" style="margin-top:20px;" placeholder="Digitar quantidade">
+      <button id="confirmBtn" class="btn btn-primary btn-block" style="margin-top:16px;">Confirmar contagem</button>
+      <button id="clearBtn" class="btn btn-secondary btn-block" style="margin-top:8px;">Limpar</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="dashboard.html" class="nav-item">Inicio</a>
+    <a href="produtos.html" class="nav-item">Produtos</a>
+    <a href="contador.html" class="nav-item active">Contar</a>
+    <a href="relatorios.html" class="nav-item">Relatorios</a>
+  </nav>
 
   <script type="module">
-    import { auth } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
+    import { auth, db } from "./js/firebase.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { searchProducts, updateProductCount } from "./js/database.js";
-    import { doc, getDoc, collection, query, where, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-    import { showToast, formatDate } from "./js/utils.js";
+    import { showToast } from "./js/utils.js";
 
-    // Verificar auth
     onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
 
-    // Variáveis
     let selectedProduct = null;
     let countedQty = 0;
-    let photoFile = null;
-    let longPressTimer = null;
-    let longPressInterval = null;
 
-    // Tornar funções globais para os botões onclick
-    window.searchProductsHandler = async function() {
-      const term = document.getElementById('searchProduct').value;
-      if (term.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; }
-      const results = await searchProducts(term);
-      const container = document.getElementById('searchResults');
-      container.innerHTML = results.map(p => `
-        <div class="card" onclick="selectProduct('${p.id}')" style="cursor:pointer;">
-          <strong>${p.name}</strong><br>
-          <small>SKU: ${p.sku} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity}</small>
-        </div>
-      `).join('');
-    };
+    function updateDisplay() {
+      document.getElementById('countDisplay').textContent = countedQty;
+      document.getElementById('manualQty').value = countedQty;
+    }
 
-    window.selectProduct = async function(id) {
+    function clearSelection() {
+      selectedProduct = null;
+      countedQty = 0;
+      document.getElementById('selectedProductInfo').style.display = 'none';
+      document.getElementById('counterArea').style.display = 'none';
+      document.getElementById('searchProduct').value = '';
+      document.getElementById('searchResults').innerHTML = '';
+      updateDisplay();
+    }
+
+    async function selectProduct(id) {
       const docSnap = await getDoc(doc(db, 'products', id));
-      if (!docSnap.exists()) return;
+      if (!docSnap.exists()) return showToast('Produto nao encontrado', 'error');
       selectedProduct = { id, ...docSnap.data() };
-      countedQty = selectedProduct.quantity;
-      
-      document.getElementById('productName').textContent = selectedProduct.name;
-      document.getElementById('productSku').textContent = 'SKU: ' + selectedProduct.sku;
-      document.getElementById('productAddress').textContent = '📍 ' + (selectedProduct.address || 'Sem endereço');
-      document.getElementById('productCurrentQty').textContent = selectedProduct.quantity + ' un';
+      countedQty = Number(selectedProduct.quantity) || 0;
+
+      document.getElementById('productName').textContent = selectedProduct.name || '';
+      document.getElementById('productSku').textContent = 'SKU: ' + (selectedProduct.sku || '');
+      document.getElementById('productAddress').textContent = 'Endereco: ' + (selectedProduct.address || 'Sem endereco');
+      document.getElementById('productCurrentQty').textContent = countedQty + ' un';
       document.getElementById('selectedProductInfo').style.display = 'block';
       document.getElementById('counterArea').style.display = 'block';
-      document.getElementById('countDisplay').textContent = countedQty;
       document.getElementById('searchResults').innerHTML = '';
-      document.getElementById('searchProduct').value = '';
-    };
+      updateDisplay();
+    }
 
-    // ... restante das funções (increment, decrement, câmera, confirmar contagem) adaptadas similarmente
-    // Como o código é extenso, você pode seguir o padrão das funções anteriores, substituindo as chamadas compat pelas modulares.
-    // Exemplo:
-    window.confirmCount = async function() {
+    document.getElementById('searchProduct').addEventListener('input', async (e) => {
+      const term = e.target.value.trim();
+      const container = document.getElementById('searchResults');
+      if (term.length < 2) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const results = await searchProducts(term);
+      container.innerHTML = results.map(p => `
+        <div class="card search-result" data-id="${p.id}" style="cursor:pointer;">
+          <strong>${p.name || ''}</strong><br>
+          <small>SKU: ${p.sku || ''} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.search-result').forEach(item => {
+        item.addEventListener('click', () => selectProduct(item.dataset.id));
+      });
+    });
+
+    document.getElementById('minusBtn').addEventListener('click', () => {
+      countedQty = Math.max(0, countedQty - 1);
+      updateDisplay();
+    });
+
+    document.getElementById('plusBtn').addEventListener('click', () => {
+      countedQty += 1;
+      updateDisplay();
+    });
+
+    document.getElementById('manualQty').addEventListener('input', (e) => {
+      countedQty = Math.max(0, Number(e.target.value) || 0);
+      document.getElementById('countDisplay').textContent = countedQty;
+    });
+
+    document.getElementById('confirmBtn').addEventListener('click', async () => {
       if (!selectedProduct) return;
       try {
-        await updateProductCount(selectedProduct.id, countedQty, photoFile);
-        showToast('Contagem salva!');
-        // ... atualizar histórico local
+        await updateProductCount(selectedProduct.id, countedQty);
+        showToast('Contagem salva');
         clearSelection();
       } catch (e) {
-        showToast('Erro: ' + e.message, 'error');
+        showToast('Erro: ' + (e.message || e), 'error');
       }
-    };
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', clearSelection);
   </script>
 </body>
 </html>
+

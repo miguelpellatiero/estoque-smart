@@ -1,25 +1,25 @@
-// js/database.js
+﻿// js/database.js
 import { 
   collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs,
   query, where, orderBy, limit, onSnapshot, serverTimestamp, runTransaction
-} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { db, auth } from "./firebase.js";
 
-// Coleções
+// ColeÃ§Ãµes
 const productsRef = collection(db, 'products');
 const categoriesRef = collection(db, 'categories');
 const movementsRef = collection(db, 'movements');
 
 // ========== PRODUTOS ==========
 
-// Criar produto com endereço automático
+// Criar produto com endereÃ§o automÃ¡tico
 export async function createProduct(productData) {
-  // Se não tiver endereço, gera automaticamente
+  // Se nÃ£o tiver endereÃ§o, gera automaticamente
   if (!productData.address) {
     productData.address = await generateAddress();
   }
   
-  // Se não tiver SKU, gera
+  // Se nÃ£o tiver SKU, gera
   if (!productData.sku) {
     productData.sku = 'SKU-' + Math.random().toString(36).substr(2, 8).toUpperCase();
   }
@@ -54,7 +54,7 @@ export async function createProduct(productData) {
 export async function updateProduct(id, data) {
   const productDocRef = doc(db, 'products', id);
 
-  // Se o nome foi alterado, atualiza também o nameLower
+  // Se o nome foi alterado, atualiza tambÃ©m o nameLower
   const updateData = { ...data };
   if (updateData.name) {
     updateData.nameLower = updateData.name.toLowerCase();
@@ -63,7 +63,7 @@ export async function updateProduct(id, data) {
 
   await runTransaction(db, async (transaction) => {
     const productSnap = await transaction.get(productDocRef);
-    if (!productSnap.exists()) throw "Produto não existe";
+    if (!productSnap.exists()) throw "Produto nÃ£o existe";
     
     const oldQuantity = productSnap.data().quantity;
     const newQuantity = updateData.quantity !== undefined ? updateData.quantity : oldQuantity;
@@ -92,10 +92,11 @@ export async function deleteProduct(id) {
 
 // Escutar produtos em tempo real
 export function listenProducts(callback) {
-  const q = query(productsRef, where('active', '==', true), orderBy('name'));
+  const q = query(productsRef, where('active', '==', true));
   return onSnapshot(q, (snapshot) => {
     const products = [];
     snapshot.forEach(doc => products.push({ id: doc.id, ...doc.data() }));
+    products.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     callback(products);
   });
 }
@@ -141,7 +142,7 @@ export async function createCategory(name) {
   await addDoc(categoriesRef, { name, createdAt: serverTimestamp() });
 }
 
-// ========== ENDEREÇAMENTO AUTOMÁTICO ==========
+// ========== ENDEREÃ‡AMENTO AUTOMÃTICO ==========
 async function generateAddress() {
   const q = query(productsRef, orderBy('address', 'desc'), limit(1));
   const snap = await getDocs(q);
@@ -164,7 +165,7 @@ export async function updateProductCount(productId, newQuantity, photoFile = nul
   
   await runTransaction(db, async (transaction) => {
     const productSnap = await transaction.get(productDocRef);
-    if (!productSnap.exists()) throw "Produto não encontrado";
+    if (!productSnap.exists()) throw "Produto nÃ£o encontrado";
     
     const oldQuantity = productSnap.data().quantity;
     transaction.update(productDocRef, {
@@ -190,7 +191,7 @@ export async function updateProductCount(productId, newQuantity, photoFile = nul
   }
 }
 
-// ========== RELATÓRIOS ==========
+// ========== RELATÃ“RIOS ==========
 export async function getReportData() {
   const q = query(productsRef, where('active', '==', true));
   const snapshot = await getDocs(q);
@@ -207,3 +208,4 @@ export async function getReportData() {
   });
   return data;
 }
+

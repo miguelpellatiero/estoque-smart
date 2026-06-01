@@ -1,8 +1,8 @@
-// js/firebase.js
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
-import { getStorage } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-storage.js";
+﻿// js/firebase.js
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { getFirestore } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { getStorage } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCxxheOUlHDmkd7ABrmDzM62oiQgh-P93c",
@@ -16,7 +16,7 @@ const firebaseConfig = {
 // Inicializa apenas uma vez
 const app = initializeApp(firebaseConfig);
 
-// Exporta as instâncias que serão usadas por outros módulos
+// Exporta as instÃ¢ncias que serÃ£o usadas por outros mÃ³dulos
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

@@ -5,8 +5,8 @@ import {
   onAuthStateChanged,
   signOut,
   updateProfile
-} from "https://www.gstatic.com/firebasejs/12.13.0/firebase-auth.js";
-import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { auth, db } from "./firebase.js";
 
 // Verifica estado do usuário (redireciona se necessário)
@@ -49,13 +49,16 @@ export async function registerUser(email, password, name) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(userCredential.user, { displayName: name });
 
-    // Cria perfil no Firestore
-    await setDoc(doc(db, 'profiles', userCredential.user.uid), {
-      fullName: name,
-      email: email,
-      role: 'user',
-      createdAt: serverTimestamp()
-    });
+    try {
+      await setDoc(doc(db, 'profiles', userCredential.user.uid), {
+        fullName: name,
+        email: email,
+        role: 'user',
+        createdAt: serverTimestamp()
+      });
+    } catch (profileError) {
+      console.warn('Perfil nao foi criado no Firestore:', profileError);
+    }
 
     return userCredential.user;
   } catch (error) {
