@@ -30,7 +30,7 @@
         <option value="">Endereço automático</option>
       </select>
       <input type="number" id="prodQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
-      <input type="text" id="prodAddress" class="input" placeholder="Endereco (automatico se vazio)">
+      <input type="text" id="prodAddress" class="input" placeholder="Endereço (automático se vazio)">
       <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto (câmera ou galeria)</p>
       <input type="file" id="prodImages" class="input" accept="image/*" multiple capture="environment">
       <div id="imagePreview" class="image-preview-grid"></div>
@@ -45,7 +45,7 @@
     <a href="dashboard.html" class="nav-item">Inicio</a>
     <a href="produtos.html" class="nav-item active">Produtos</a>
     <a href="contador.html" class="nav-item">Contar</a>
-    <a href="relatorios.html" class="nav-item">Relatorios</a>
+    <a href="relatorios.html" class="nav-item">Relatórios</a>
   </nav>
 
   <script type="module">
@@ -72,7 +72,7 @@
         <div class="card product-row">
           <div>
             <strong>${p.name || ''}</strong> <small>${p.sku || ''}</small><br>
-            <small style="color:var(--text-light);">Categoria: ${p.categoryName || 'Sem categoria'} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
+            <small style="color:var(--text-light);">Categoria: ${p.categoryName || 'Sem categoria'} | Endereço: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
           </div>
           <div class="row-actions">
             <button class="btn btn-secondary edit-btn" data-id="${p.id}">Editar</button>

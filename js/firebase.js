@@ -16,7 +16,7 @@ const firebaseConfig = {
 // Inicializa apenas uma vez
 const app = initializeApp(firebaseConfig);
 
-// Exporta as instÃ¢ncias que serÃ£o usadas por outros mÃ³dulos
+// Exporta as instâncias que serão usadas por outros módulos
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);

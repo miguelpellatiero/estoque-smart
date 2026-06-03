@@ -95,7 +95,7 @@
         window.location.href = 'dashboard.html';
       } catch (loginError) {
         try {
-          await registerUser(demoEmail, demoPassword, 'Usuario Teste');
+          await registerUser(demoEmail, demoPassword, 'Usuário Teste');
           window.location.href = 'dashboard.html';
         } catch (registerError) {
           showToast(getFirebaseMessage(registerError || loginError), 'error');

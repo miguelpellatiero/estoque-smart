@@ -22,7 +22,7 @@ export async function uploadProductPhoto(productId, file, metadata = {}) {
 }
 
 export async function getProductPhotos(productId) {
-  // SerÃ¡ usado nos detalhes do produto
+  // Será usado nos detalhes do produto
   const { getDocs, query, where, orderBy } = await import("https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js");
   const photosRef = collection(db, 'productPhotos');
   const q = query(photosRef, where('productId', '==', productId), orderBy('createdAt', 'desc'));

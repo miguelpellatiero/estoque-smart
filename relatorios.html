@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>SmartStock - Relatorios</title>
+  <title>SmartStock - Relatórios</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="header">
-    <h1>Relatorios</h1>
+    <h1>Relatórios</h1>
     <button onclick="location.href='dashboard.html'" class="btn btn-secondary" style="padding:8px 16px;">Voltar</button>
   </div>
 
@@ -23,7 +23,7 @@
     <a href="dashboard.html" class="nav-item">Inicio</a>
     <a href="produtos.html" class="nav-item">Produtos</a>
     <a href="contador.html" class="nav-item">Contar</a>
-    <a href="relatorios.html" class="nav-item active">Relatorios</a>
+    <a href="relatorios.html" class="nav-item active">Relatórios</a>
   </nav>
 
   <script type="module">
@@ -62,7 +62,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>SKU</th><th>Nome</th><th>Qtd</th><th>Endereco</th></tr>
+              <tr><th>SKU</th><th>Nome</th><th>Qtd</th><th>Endereço</th></tr>
             </thead>
             <tbody>
               ${dadosRelatorio.map(d => `

@@ -5,7 +5,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { db, auth } from "./firebase.js";
 
-// ColeÃ§Ãµes
+// Coleções
 const productsRef = collection(db, 'products');
 const categoriesRef = collection(db, 'categories');
 const movementsRef = collection(db, 'movements');
@@ -13,14 +13,14 @@ const addressPatternsRef = collection(db, 'addressPatterns');
 
 // ========== PRODUTOS ==========
 
-// Criar produto com endereÃ§o automÃ¡tico
+// Criar produto com endereço automático
 export async function createProduct(productData, photoFiles = []) {
-  // Se nÃ£o tiver endereÃ§o, gera automaticamente
+  // Se não tiver endereço, gera automaticamente
   if (!productData.address) {
     productData.address = await generateAddress(productData.addressPatternId);
   }
   
-  // Se nÃ£o tiver SKU, gera
+  // Se não tiver SKU, gera
   if (!productData.sku) {
     productData.sku = 'SKU-' + Math.random().toString(36).substr(2, 8).toUpperCase();
   }
@@ -75,7 +75,7 @@ export async function createProduct(productData, photoFiles = []) {
 export async function updateProduct(id, data, photoFiles = []) {
   const productDocRef = doc(db, 'products', id);
 
-  // Se o nome foi alterado, atualiza tambÃ©m o nameLower
+  // Se o nome foi alterado, atualiza também o nameLower
   const updateData = { ...data };
   if (updateData.name) {
     updateData.nameLower = updateData.name.toLowerCase();
@@ -89,7 +89,7 @@ export async function updateProduct(id, data, photoFiles = []) {
 
   await runTransaction(db, async (transaction) => {
     const productSnap = await transaction.get(productDocRef);
-    if (!productSnap.exists()) throw "Produto nÃ£o existe";
+    if (!productSnap.exists()) throw "Produto não existe";
     
     const oldQuantity = productSnap.data().quantity;
     const newQuantity = updateData.quantity !== undefined ? updateData.quantity : oldQuantity;
@@ -258,7 +258,7 @@ export async function deleteAddressPattern(id) {
   await deleteDoc(doc(db, 'addressPatterns', id));
 }
 
-// ========== ENDEREÃ‡AMENTO AUTOMÃTICO ==========
+// ========== ENDEREÇAMENTO AUTOMÁTICO ==========
 async function generateAddress(patternId = null) {
   if (patternId) {
     const patternRef = doc(db, 'addressPatterns', patternId);
@@ -378,7 +378,7 @@ export async function updateProductCount(productId, newQuantity, photoFiles = []
   await addDoc(movementsRef, movementData);
 }
 
-// ========== RELATÃ“RIOS ==========
+// ========== RELATÓRIOS ==========
 export async function getReportData() {
   const q = query(productsRef, where('active', '==', true));
   const snapshot = await getDocs(q);

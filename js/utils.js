@@ -22,7 +22,7 @@ export function exportToExcel(data, filename = 'estoque') {
     return;
   }
 
-  let csv = 'SKU;Nome;Categoria;Quantidade;Endereco\n';
+  let csv = 'SKU;Nome;Categoria;Quantidade;Endereço\n';
   data.forEach(item => {
     csv += `${item.SKU};${item.Nome};${item.Categoria};${item.Quantidade};${item.Endereco}\n`;
   });

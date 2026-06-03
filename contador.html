@@ -28,7 +28,7 @@
         <option value="">Endereço automático</option>
       </select>
       <input type="number" id="quickQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
-      <input type="text" id="quickAddress" class="input" placeholder="Endereco (automatico se vazio)">
+      <input type="text" id="quickAddress" class="input" placeholder="Endereço (automático se vazio)">
       <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto</p>
       <input type="file" id="quickImages" class="input" accept="image/*" multiple capture="environment">
       <div id="quickPreview" class="image-preview-grid"></div>
@@ -64,7 +64,7 @@
     <a href="dashboard.html" class="nav-item">Inicio</a>
     <a href="produtos.html" class="nav-item">Produtos</a>
     <a href="contador.html" class="nav-item active">Contar</a>
-    <a href="relatorios.html" class="nav-item">Relatorios</a>
+    <a href="relatorios.html" class="nav-item">Relatórios</a>
   </nav>
 
   <script type="module">
@@ -190,7 +190,7 @@
 
       document.getElementById('productName').textContent = selectedProduct.name || '';
       document.getElementById('productSku').textContent = 'SKU: ' + (selectedProduct.sku || '');
-      document.getElementById('productAddress').textContent = 'Endereco: ' + (selectedProduct.address || 'Sem endereco');
+      document.getElementById('productAddress').textContent = 'Endereço: ' + (selectedProduct.address || 'Sem endereço');
       document.getElementById('productCurrentQty').textContent = countedQty + ' un';
       document.getElementById('selectedProductInfo').style.display = 'block';
       document.getElementById('counterArea').style.display = 'block';
