@@ -173,33 +173,52 @@
 
     document.getElementById('salvarProdutoBtn').addEventListener('click', async () => {
       const name = document.getElementById('prodName').value.trim();
-      if (!name) return showToast('Nome obrigatorio', 'error');
+      if (!name) return showToast('Nome obrigatório', 'error');
 
       const categoryId = document.getElementById('prodCategory').value || null;
       const categoryName = categoryId ? (categorias.find(cat => cat.id === categoryId)?.name || '') : '';
       const addressPatternId = document.getElementById('prodPattern').value || null;
       const imageFiles = Array.from(document.getElementById('prodImages').files);
+      const sku = document.getElementById('prodSku').value.trim();
+      const address = document.getElementById('prodAddress').value.trim() || null;
 
       const data = {
         name,
-        sku: document.getElementById('prodSku').value.trim(),
+        sku,
         categoryId,
         categoryName,
         addressPatternId,
         quantity: Number(document.getElementById('prodQty').value) || 0,
-        address: document.getElementById('prodAddress').value.trim() || null
+        address
       };
 
       try {
         if (editingId) {
           await updateProduct(editingId, data, imageFiles);
+          const updatedIndex = produtos.findIndex(p => p.id === editingId);
+          if (updatedIndex !== -1) {
+            produtos[updatedIndex] = { ...produtos[updatedIndex], ...data };
+            renderizarLista(produtos);
+          }
           showToast('Produto atualizado');
         } else {
-          await createProduct(data, imageFiles);
+          const productId = await createProduct(data, imageFiles);
+          produtos.unshift({
+            id: productId,
+            ...data,
+            active: true,
+            nameLower: name.toLowerCase(),
+            skuUpper: sku.toUpperCase(),
+            categoryNameLower: categoryName.toLowerCase(),
+            addressLower: (address || '').toLowerCase()
+          });
+          renderizarLista(produtos);
           showToast('Produto criado');
         }
         fecharModal();
+        limparFormulario();
       } catch (e) {
+        console.error('Erro ao salvar produto:', e);
         showToast('Erro: ' + (e.message || e), 'error');
       }
     });
