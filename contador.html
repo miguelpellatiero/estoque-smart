@@ -15,6 +15,28 @@
   <div class="page">
     <input type="text" id="searchProduct" class="input" placeholder="Buscar por nome ou SKU...">
     <div id="searchResults" style="margin-top:16px;"></div>
+    <button id="quickCreateBtn" class="btn btn-secondary btn-block" style="margin-top:16px;">Criar produto rápido</button>
+
+    <div id="quickCreateCard" class="card" style="display:none; margin-top:16px;">
+      <h2>Criar produto</h2>
+      <input type="text" id="quickName" class="input" placeholder="Nome do produto">
+      <input type="text" id="quickSku" class="input" placeholder="SKU (opcional)">
+      <select id="quickCategory" class="input">
+        <option value="">Sem categoria</option>
+      </select>
+      <select id="quickPattern" class="input">
+        <option value="">Endereço automático</option>
+      </select>
+      <input type="number" id="quickQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
+      <input type="text" id="quickAddress" class="input" placeholder="Endereco (automatico se vazio)">
+      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto</p>
+      <input type="file" id="quickImages" class="input" accept="image/*" multiple capture="environment">
+      <div id="quickPreview" class="image-preview-grid"></div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button id="saveQuickProductBtn" class="btn btn-primary">Salvar produto</button>
+        <button id="cancelQuickCreateBtn" class="btn btn-secondary">Cancelar</button>
+      </div>
+    </div>
 
     <div id="selectedProductInfo" class="card" style="display:none;">
       <h2 id="productName"></h2>
@@ -30,6 +52,9 @@
         <button id="plusBtn" class="counter-btn counter-btn-plus">+</button>
       </div>
       <input type="number" id="manualQty" class="input" min="0" style="margin-top:20px;" placeholder="Digitar quantidade">
+      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos da contagem</p>
+      <input type="file" id="countImages" class="input" accept="image/*" multiple capture="environment">
+      <div id="countPreview" class="image-preview-grid"></div>
       <button id="confirmBtn" class="btn btn-primary btn-block" style="margin-top:16px;">Confirmar contagem</button>
       <button id="clearBtn" class="btn btn-secondary btn-block" style="margin-top:8px;">Limpar</button>
     </div>
@@ -46,13 +71,27 @@
     import { auth, db } from "./js/firebase.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
     import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-    import { searchProducts, updateProductCount } from "./js/database.js";
+    import { searchProducts, updateProductCount, createProduct, getCategories, getAddressPatterns } from "./js/database.js";
     import { showToast } from "./js/utils.js";
 
     onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
 
     let selectedProduct = null;
     let countedQty = 0;
+    let categorias = [];
+    let padroes = [];
+
+    function previewQuickImages() {
+      const files = Array.from(document.getElementById('quickImages').files);
+      const preview = document.getElementById('quickPreview');
+      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
+    }
+
+    function previewCountImages() {
+      const files = Array.from(document.getElementById('countImages').files);
+      const preview = document.getElementById('countPreview');
+      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
+    }
 
     function updateDisplay() {
       document.getElementById('countDisplay').textContent = countedQty;
@@ -68,6 +107,80 @@
       document.getElementById('searchResults').innerHTML = '';
       updateDisplay();
     }
+    async function carregarCategorias() {
+      const select = document.getElementById('quickCategory');
+      categorias = await getCategories();
+      select.innerHTML = '<option value="">Sem categoria</option>';
+      categorias.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat.id;
+        opt.textContent = cat.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function carregarPadroes() {
+      const select = document.getElementById('quickPattern');
+      padroes = await getAddressPatterns();
+      select.innerHTML = '<option value="">Endereço automático</option>';
+      padroes.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} — ${p.format}`;
+        select.appendChild(opt);
+      });
+    }
+
+    document.getElementById('quickCreateBtn').addEventListener('click', () => {
+      document.getElementById('quickCreateCard').style.display = 'block';
+      document.getElementById('searchProduct').blur();
+    });
+
+    document.getElementById('cancelQuickCreateBtn').addEventListener('click', () => {
+      document.getElementById('quickCreateCard').style.display = 'none';
+      document.getElementById('quickImages').value = '';
+      document.getElementById('quickPreview').innerHTML = '';
+    });
+
+    document.getElementById('quickImages').addEventListener('change', previewQuickImages);
+    document.getElementById('countImages').addEventListener('change', previewCountImages);
+
+    document.getElementById('saveQuickProductBtn').addEventListener('click', async () => {
+      const name = document.getElementById('quickName').value.trim();
+      if (!name) return showToast('Informe o nome do produto', 'error');
+
+      const categoryId = document.getElementById('quickCategory').value || null;
+      const categoryName = categoryId ? (categorias.find(cat => cat.id === categoryId)?.name || '') : '';
+      const patternId = document.getElementById('quickPattern').value || null;
+      const imageFiles = Array.from(document.getElementById('quickImages').files);
+
+      const data = {
+        name,
+        sku: document.getElementById('quickSku').value.trim(),
+        categoryId,
+        categoryName,
+        quantity: Number(document.getElementById('quickQty').value) || 0,
+        address: document.getElementById('quickAddress').value.trim() || null,
+        addressPatternId: patternId
+      };
+
+      try {
+        await createProduct(data, imageFiles);
+        showToast('Produto criado e disponível para contagem');
+        document.getElementById('quickCreateCard').style.display = 'none';
+        document.getElementById('quickName').value = '';
+        document.getElementById('quickSku').value = '';
+        document.getElementById('quickQty').value = '0';
+        document.getElementById('quickAddress').value = '';
+        document.getElementById('quickImages').value = '';
+        document.getElementById('quickPreview').innerHTML = '';
+      } catch (e) {
+        showToast('Erro: ' + (e.message || e), 'error');
+      }
+    });
+
+    carregarCategorias();
+    carregarPadroes();
 
     async function selectProduct(id) {
       const docSnap = await getDoc(doc(db, 'products', id));
@@ -123,8 +236,9 @@
 
     document.getElementById('confirmBtn').addEventListener('click', async () => {
       if (!selectedProduct) return;
+      const imageFiles = Array.from(document.getElementById('countImages').files);
       try {
-        await updateProductCount(selectedProduct.id, countedQty);
+        await updateProductCount(selectedProduct.id, countedQty, imageFiles);
         showToast('Contagem salva');
         clearSelection();
       } catch (e) {

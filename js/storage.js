@@ -3,14 +3,17 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 import { collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { storage, auth, db } from "./firebase.js";
 
-export async function uploadProductPhoto(productId, file) {
-  const storageRef = ref(storage, `products/${productId}/${Date.now()}_${file.name}`);
+export async function uploadProductPhoto(productId, file, metadata = {}) {
+  const safeName = (file.name || 'foto.jpg').replace(/[^\w.-]/g, '_');
+  const storageRef = ref(storage, `products/${productId}/${Date.now()}_${safeName}`);
   const snapshot = await uploadBytes(storageRef, file);
   const url = await getDownloadURL(snapshot.ref);
 
   await addDoc(collection(db, 'productPhotos'), {
     productId,
     url,
+    address: metadata.address || '',
+    source: metadata.source || 'product',
     uploadedBy: auth.currentUser.uid,
     createdAt: serverTimestamp()
   });

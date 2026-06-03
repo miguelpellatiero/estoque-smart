@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Relatorios</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <div class="header">
@@ -13,7 +14,7 @@
   </div>
 
   <div class="page">
-    <button id="exportBtn" class="btn btn-primary btn-block" style="margin-bottom:16px;">Exportar CSV</button>
+    <button id="exportBtn" class="btn btn-primary btn-block" style="margin-bottom:16px;">Exportar estoque</button>
     <button id="imprimirBtn" class="btn btn-secondary btn-block">Imprimir lista</button>
     <div id="tabelaRelatorio" style="margin-top:24px;"></div>
   </div>
@@ -45,7 +46,7 @@
         dadosRelatorio.push({
           SKU: p.sku || '',
           Nome: p.name || '',
-          Categoria: p.categoryId || '',
+          Categoria: p.categoryName || p.categoryId || '',
           Quantidade: p.quantity || 0,
           Endereco: p.address || ''
         });

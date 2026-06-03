@@ -4,7 +4,24 @@ export function formatDate(timestamp) {
   return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
 }
 
+export function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export function exportToExcel(data, filename = 'estoque') {
+  if (window.XLSX) {
+    const worksheet = window.XLSX.utils.json_to_sheet(data);
+    const workbook = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(workbook, worksheet, 'Estoque');
+    window.XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    return;
+  }
+
   let csv = 'SKU;Nome;Categoria;Quantidade;Endereco\n';
   data.forEach(item => {
     csv += `${item.SKU};${item.Nome};${item.Categoria};${item.Quantidade};${item.Endereco}\n`;

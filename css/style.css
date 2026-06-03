@@ -367,6 +367,20 @@ th {
   margin-top: 12px;
 }
 
+.image-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.image-preview-grid img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: var(--radius);
+}
+
 /* Câmera */
 .camera-container {
   position: fixed;

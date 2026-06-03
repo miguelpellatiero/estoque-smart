@@ -9,14 +9,15 @@ import { db, auth } from "./firebase.js";
 const productsRef = collection(db, 'products');
 const categoriesRef = collection(db, 'categories');
 const movementsRef = collection(db, 'movements');
+const addressPatternsRef = collection(db, 'addressPatterns');
 
 // ========== PRODUTOS ==========
 
 // Criar produto com endereÃ§o automÃ¡tico
-export async function createProduct(productData) {
+export async function createProduct(productData, photoFiles = []) {
   // Se nÃ£o tiver endereÃ§o, gera automaticamente
   if (!productData.address) {
-    productData.address = await generateAddress();
+    productData.address = await generateAddress(productData.addressPatternId);
   }
   
   // Se nÃ£o tiver SKU, gera
@@ -27,7 +28,12 @@ export async function createProduct(productData) {
   // Garantir que o campo nameLower exista para buscas
   const dataToSave = {
     ...productData,
+    categoryId: productData.categoryId || null,
+    categoryName: productData.categoryName || '',
     nameLower: (productData.name || '').toLowerCase(),
+    skuUpper: (productData.sku || '').toUpperCase(),
+    categoryNameLower: (productData.categoryName || '').toLowerCase(),
+    addressLower: (productData.address || '').toLowerCase(),
     quantity: productData.quantity || 0,
     active: true,
     createdAt: serverTimestamp(),
@@ -37,21 +43,36 @@ export async function createProduct(productData) {
 
   const docRef = await addDoc(productsRef, dataToSave);
 
-  // Registrar movimento de entrada
-  await addDoc(movementsRef, {
+  const quantity = dataToSave.quantity;
+  const movementData = {
     productId: docRef.id,
     type: 'in',
-    quantityChange: dataToSave.quantity,
-    newQuantity: dataToSave.quantity,
+    quantityChange: quantity,
+    previousQuantity: 0,
+    newQuantity: quantity,
     performedBy: auth.currentUser.uid,
     createdAt: serverTimestamp()
-  });
+  };
 
+  if (photoFiles && photoFiles.length) {
+    const { uploadProductPhoto } = await import("./storage.js");
+    const photoUrls = [];
+    for (const photoFile of photoFiles) {
+      const url = await uploadProductPhoto(docRef.id, photoFile, {
+        address: dataToSave.address,
+        source: 'product'
+      });
+      photoUrls.push(url);
+    }
+    movementData.photoUrls = photoUrls;
+  }
+
+  await addDoc(movementsRef, movementData);
   return docRef.id;
 }
 
 // Atualizar produto (com registro de movimento)
-export async function updateProduct(id, data) {
+export async function updateProduct(id, data, photoFiles = []) {
   const productDocRef = doc(db, 'products', id);
 
   // Se o nome foi alterado, atualiza tambÃ©m o nameLower
@@ -59,7 +80,12 @@ export async function updateProduct(id, data) {
   if (updateData.name) {
     updateData.nameLower = updateData.name.toLowerCase();
   }
+  if (updateData.sku !== undefined) updateData.skuUpper = (updateData.sku || '').toUpperCase();
+  if (updateData.categoryName !== undefined) updateData.categoryNameLower = (updateData.categoryName || '').toLowerCase();
+  if (updateData.address !== undefined) updateData.addressLower = (updateData.address || '').toLowerCase();
   updateData.updatedAt = serverTimestamp();
+
+  let quantityChangeData = null;
 
   await runTransaction(db, async (transaction) => {
     const productSnap = await transaction.get(productDocRef);
@@ -72,17 +98,31 @@ export async function updateProduct(id, data) {
     
     // Registrar movimento se quantidade mudou
     if (updateData.quantity !== undefined && updateData.quantity !== oldQuantity) {
-      transaction.set(doc(movementsRef), {
+      quantityChangeData = {
         productId: id,
         type: newQuantity > oldQuantity ? 'in' : 'out',
         quantityChange: newQuantity - oldQuantity,
         previousQuantity: oldQuantity,
-        newQuantity: newQuantity,
+        newQuantity,
         performedBy: auth.currentUser.uid,
         createdAt: serverTimestamp()
-      });
+      };
     }
   });
+
+  if (quantityChangeData) {
+    await addDoc(movementsRef, quantityChangeData);
+  }
+
+  if (photoFiles && photoFiles.length) {
+    const { uploadProductPhoto } = await import("./storage.js");
+    for (const photoFile of photoFiles) {
+      await uploadProductPhoto(id, photoFile, {
+        address: updateData.address || '',
+        source: 'product'
+      });
+    }
+  }
 }
 
 // Deletar produto (soft delete)
@@ -104,29 +144,42 @@ export function listenProducts(callback) {
 // Buscar produtos (prefixo)
 export async function searchProducts(term) {
   const termLower = term.toLowerCase();
+  const termUpper = term.toUpperCase();
+  const queries = [
+    query(productsRef,
+      where('nameLower', '>=', termLower),
+      where('nameLower', '<=', termLower + '\uf8ff'),
+      limit(10)
+    ),
+    query(productsRef,
+      where('skuUpper', '>=', termUpper),
+      where('skuUpper', '<=', termUpper + '\uf8ff'),
+      limit(10)
+    ),
+    query(productsRef,
+      where('categoryNameLower', '>=', termLower),
+      where('categoryNameLower', '<=', termLower + '\uf8ff'),
+      limit(10)
+    ),
+    query(productsRef,
+      where('addressLower', '>=', termLower),
+      where('addressLower', '<=', termLower + '\uf8ff'),
+      limit(10)
+    )
+  ];
+
   const results = [];
-  
-  // Busca por nome (usando nameLower)
-  const nameQ = query(productsRef, 
-    where('nameLower', '>=', termLower),
-    where('nameLower', '<=', termLower + '\uf8ff'),
-    limit(10)
-  );
-  const nameSnap = await getDocs(nameQ);
-  nameSnap.forEach(doc => results.push({ id: doc.id, ...doc.data() }));
-  
-  // Busca por SKU
-  const skuQ = query(productsRef,
-    where('sku', '>=', term.toUpperCase()),
-    where('sku', '<=', term.toUpperCase() + '\uf8ff'),
-    limit(10)
-  );
-  const skuSnap = await getDocs(skuQ);
-  skuSnap.forEach(doc => {
-    if (!results.find(p => p.id === doc.id)) results.push({ id: doc.id, ...doc.data() });
-  });
-  
-  return results;
+  for (const q of queries) {
+    const snapshot = await getDocs(q);
+    snapshot.forEach(doc => {
+      const item = { id: doc.id, ...doc.data() };
+      if (!results.find(p => p.id === item.id) && item.active !== false) {
+        results.push(item);
+      }
+    });
+  }
+
+  return results.slice(0, 20);
 }
 
 // ========== CATEGORIAS ==========
@@ -139,56 +192,190 @@ export async function getCategories() {
 }
 
 export async function createCategory(name) {
-  await addDoc(categoriesRef, { name, createdAt: serverTimestamp() });
+  await addDoc(categoriesRef, { name, nameLower: name.toLowerCase(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+}
+
+export function listenCategories(callback) {
+  const q = query(categoriesRef, orderBy('name'));
+  return onSnapshot(q, (snapshot) => {
+    const categories = [];
+    snapshot.forEach(docSnap => categories.push({ id: docSnap.id, ...docSnap.data() }));
+    callback(categories);
+  });
+}
+
+export async function updateCategory(id, name) {
+  await updateDoc(doc(db, 'categories', id), {
+    name,
+    nameLower: name.toLowerCase(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function deleteCategory(id) {
+  await deleteDoc(doc(db, 'categories', id));
+}
+
+// ========== PADROES DE ENDERECAMENTO ==========
+export function listenAddressPatterns(callback) {
+  const q = query(addressPatternsRef, orderBy('createdAt'));
+  return onSnapshot(q, (snapshot) => {
+    const patterns = [];
+    snapshot.forEach(docSnap => patterns.push({ id: docSnap.id, ...docSnap.data() }));
+    callback(patterns);
+  });
+}
+
+export async function getAddressPatterns() {
+  const snapshot = await getDocs(query(addressPatternsRef, orderBy('createdAt')));
+  const patterns = [];
+  snapshot.forEach(docSnap => patterns.push({ id: docSnap.id, ...docSnap.data() }));
+  return patterns;
+}
+
+export async function createAddressPattern(data) {
+  await addDoc(addressPatternsRef, {
+    name: data.name,
+    format: data.format || 'A-{corredor}-{prateleira}-{nivel}',
+    prefix: data.prefix || 'A',
+    nextNumber: Number(data.nextNumber) || 1,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function updateAddressPattern(id, data) {
+  await updateDoc(doc(db, 'addressPatterns', id), {
+    name: data.name,
+    format: data.format,
+    prefix: data.prefix || '',
+    nextNumber: Number(data.nextNumber) || 1,
+    updatedAt: serverTimestamp()
+  });
+}
+
+export async function deleteAddressPattern(id) {
+  await deleteDoc(doc(db, 'addressPatterns', id));
 }
 
 // ========== ENDEREÃ‡AMENTO AUTOMÃTICO ==========
-async function generateAddress() {
+async function generateAddress(patternId = null) {
+  if (patternId) {
+    const patternRef = doc(db, 'addressPatterns', patternId);
+    return await runTransaction(db, async (transaction) => {
+      const patternSnap = await transaction.get(patternRef);
+      if (!patternSnap.exists()) return generateSequentialAddress(1);
+      const pattern = patternSnap.data();
+      const number = Number(pattern.nextNumber) || 1;
+      transaction.update(patternRef, {
+        nextNumber: number + 1,
+        updatedAt: serverTimestamp()
+      });
+      return formatAddress(pattern, number);
+    });
+  }
+
+  const patterns = await getAddressPatterns();
+  if (patterns.length > 0) {
+    const first = patterns[0];
+    const patternRef = doc(db, 'addressPatterns', first.id);
+    return await runTransaction(db, async (transaction) => {
+      const patternSnap = await transaction.get(patternRef);
+      if (!patternSnap.exists()) return generateSequentialAddress(1);
+      const pattern = patternSnap.data();
+      const number = Number(pattern.nextNumber) || 1;
+      transaction.update(patternRef, {
+        nextNumber: number + 1,
+        updatedAt: serverTimestamp()
+      });
+      return formatAddress(pattern, number);
+    });
+  }
+
   const q = query(productsRef, orderBy('address', 'desc'), limit(1));
   const snap = await getDocs(q);
   
-  if (snap.empty) return '01-01-01-01';
+  if (snap.empty) return 'A-01-01-01';
   
   const lastAddress = snap.docs[0].data().address;
-  const parts = lastAddress.split('-').map(Number);
-  parts[3] = (parts[3] || 0) + 1;
-  if (parts[3] > 99) { parts[3] = 1; parts[2]++; }
-  if (parts[2] > 99) { parts[2] = 1; parts[1]++; }
-  if (parts[1] > 99) { parts[1] = 1; parts[0]++; }
+  const numericParts = (lastAddress.match(/\d+/g) || []).map(Number);
+  if (numericParts.length < 3) return 'A-01-01-01';
+  numericParts[2] = (numericParts[2] || 0) + 1;
+  if (numericParts[2] > 99) { numericParts[2] = 1; numericParts[1]++; }
+  if (numericParts[1] > 99) { numericParts[1] = 1; numericParts[0]++; }
   
-  return parts.map(p => String(p).padStart(2, '0')).join('-');
+  return `A-${numericParts.map(p => String(p).padStart(2, '0')).join('-')}`;
+}
+
+function formatAddress(pattern, number) {
+  const prefix = pattern.prefix || 'A';
+  const corredor = Math.floor((number - 1) / 10000) + 1;
+  const prateleira = Math.floor(((number - 1) % 10000) / 100) + 1;
+  const nivel = ((number - 1) % 100) + 1;
+  const posicao = number;
+  const values = {
+    rua: prefix,
+    corredor: String(corredor).padStart(2, '0'),
+    prateleira: String(prateleira).padStart(2, '0'),
+    nivel: String(nivel).padStart(2, '0'),
+    posicao: String(posicao).padStart(3, '0')
+  };
+
+  return (pattern.format || 'A-{corredor}-{prateleira}-{nivel}')
+    .replace(/\{rua\}/g, values.rua)
+    .replace(/\{corredor\}/g, values.corredor)
+    .replace(/\{prateleira\}/g, values.prateleira)
+    .replace(/\{nivel\}/g, values.nivel)
+    .replace(/\{posicao\}/g, values.posicao);
+}
+
+function generateSequentialAddress(number) {
+  return `A-01-01-${String(number).padStart(2, '0')}`;
 }
 
 // ========== CONTAGEM ==========
-export async function updateProductCount(productId, newQuantity, photoFile = null) {
+export async function updateProductCount(productId, newQuantity, photoFiles = []) {
   const productDocRef = doc(db, 'products', productId);
-  
+  let currentProduct = null;
+  let previousQuantity = 0;
+
   await runTransaction(db, async (transaction) => {
     const productSnap = await transaction.get(productDocRef);
-    if (!productSnap.exists()) throw "Produto nÃ£o encontrado";
-    
-    const oldQuantity = productSnap.data().quantity;
+    if (!productSnap.exists()) throw "Produto não encontrado";
+    currentProduct = { id: productId, ...productSnap.data() };
+    previousQuantity = productSnap.data().quantity || 0;
+
     transaction.update(productDocRef, {
       quantity: newQuantity,
       updatedAt: serverTimestamp()
     });
-    
-    transaction.set(doc(movementsRef), {
-      productId,
-      type: 'count',
-      quantityChange: newQuantity - oldQuantity,
-      previousQuantity: oldQuantity,
-      newQuantity,
-      performedBy: auth.currentUser.uid,
-      createdAt: serverTimestamp()
-    });
   });
-  
-  // Upload da foto se existir
-  if (photoFile) {
+
+  const movementData = {
+    productId,
+    type: 'count',
+    quantityChange: newQuantity - previousQuantity,
+    previousQuantity,
+    newQuantity,
+    performedBy: auth.currentUser.uid,
+    address: currentProduct.address || '',
+    createdAt: serverTimestamp()
+  };
+
+  const photoUrls = [];
+  if (photoFiles && photoFiles.length) {
     const { uploadProductPhoto } = await import("./storage.js");
-    await uploadProductPhoto(productId, photoFile);
+    for (const photoFile of photoFiles) {
+      const url = await uploadProductPhoto(productId, photoFile, {
+        address: currentProduct.address || '',
+        source: 'count'
+      });
+      photoUrls.push(url);
+    }
+    if (photoUrls.length) movementData.photoUrls = photoUrls;
   }
+
+  await addDoc(movementsRef, movementData);
 }
 
 // ========== RELATÃ“RIOS ==========

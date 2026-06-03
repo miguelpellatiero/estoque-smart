@@ -17,7 +17,15 @@
       <h2>Gerenciar PapÃ©is de UsuÃ¡rio</h2>
       <div id="listaUsuarios" style="margin-top:12px;"></div>
     </div>
-  </div>
+    <div class="card">
+      <h2>Padrões de Endereçamento</h2>
+      <input type="text" id="patternName" class="input" placeholder="Nome do padrão">
+      <input type="text" id="patternFormat" class="input" placeholder="Formato: A-{corredor}-{prateleira}-{nivel}">
+      <input type="text" id="patternPrefix" class="input" placeholder="Prefixo (ex: A)">
+      <input type="number" id="patternNext" class="input" placeholder="Próximo número" value="1" min="1">
+      <button id="addPatternBtn" class="btn btn-primary btn-block" style="margin-top:12px;">Salvar padrão</button>
+      <div id="listaPadroes" style="margin-top:16px;"></div>
+    </div>  </div>
 
   <script type="module">
     import { auth, db } from "./js/firebase.js";
@@ -25,6 +33,7 @@
     import { collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
     import { isMaster } from "./js/auth.js";
     import { showToast } from "./js/utils.js";
+    import { getAddressPatterns, createAddressPattern, updateAddressPattern, deleteAddressPattern } from "./js/database.js";
 
     onAuthStateChanged(auth, async (user) => {
       if (!user) return window.location.href = 'index.html';
@@ -35,6 +44,7 @@
         return;
       }
       carregarUsuarios();
+      carregarPadroes();
     });
 
     async function carregarUsuarios() {
@@ -68,6 +78,75 @@
         });
       });
     }
+
+    async function carregarPadroes() {
+      const patterns = await getAddressPatterns();
+      const lista = document.getElementById('listaPadroes');
+      lista.innerHTML = '';
+      if (patterns.length === 0) {
+        lista.innerHTML = '<div class="card"><p>Nenhum padrão cadastrado.</p></div>';
+      }
+
+      patterns.forEach(pattern => {
+        lista.innerHTML += `
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:12px;">
+            <div>
+              <strong>${pattern.name}</strong><br>
+              <small>${pattern.format} | prefixo: ${pattern.prefix} | próximo: ${pattern.nextNumber}</small>
+            </div>
+            <div class="row-actions">
+              <button class="btn btn-secondary edit-pattern" data-id="${pattern.id}" data-name="${pattern.name}" data-format="${pattern.format}" data-prefix="${pattern.prefix}" data-next="${pattern.nextNumber}">Editar</button>
+              <button class="btn btn-danger delete-pattern" data-id="${pattern.id}">Excluir</button>
+            </div>
+          </div>
+        `;
+      });
+
+      lista.querySelectorAll('.edit-pattern').forEach(button => {
+        button.addEventListener('click', () => {
+          document.getElementById('patternName').value = button.dataset.name;
+          document.getElementById('patternFormat').value = button.dataset.format;
+          document.getElementById('patternPrefix').value = button.dataset.prefix;
+          document.getElementById('patternNext').value = button.dataset.next;
+          document.getElementById('addPatternBtn').dataset.editing = button.dataset.id;
+          document.getElementById('addPatternBtn').textContent = 'Salvar padrão';
+        });
+      });
+
+      lista.querySelectorAll('.delete-pattern').forEach(button => {
+        button.addEventListener('click', async () => {
+          if (!confirm('Excluir este padrão?')) return;
+          await deleteAddressPattern(button.dataset.id);
+          carregarPadroes();
+          showToast('Padrão removido');
+        });
+      });
+    }
+
+    document.getElementById('addPatternBtn').addEventListener('click', async () => {
+      const name = document.getElementById('patternName').value.trim();
+      const format = document.getElementById('patternFormat').value.trim();
+      const prefix = document.getElementById('patternPrefix').value.trim();
+      const nextNumber = Number(document.getElementById('patternNext').value) || 1;
+      if (!name) return showToast('Informe o nome do padrão', 'error');
+
+      const editingId = document.getElementById('addPatternBtn').dataset.editing;
+      if (editingId) {
+        await updateAddressPattern(editingId, { name, format, prefix, nextNumber });
+        delete document.getElementById('addPatternBtn').dataset.editing;
+        showToast('Padrão atualizado');
+      } else {
+        await createAddressPattern({ name, format, prefix, nextNumber });
+        showToast('Padrão criado');
+      }
+
+      document.getElementById('patternName').value = '';
+      document.getElementById('patternFormat').value = '';
+      document.getElementById('patternPrefix').value = '';
+      document.getElementById('patternNext').value = '1';
+      document.getElementById('addPatternBtn').textContent = 'Salvar padrão';
+      carregarPadroes();
+    });
   </script>
 </body>
 </html>

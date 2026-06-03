@@ -26,8 +26,14 @@
       <select id="prodCategory" class="input">
         <option value="">Sem categoria</option>
       </select>
+      <select id="prodPattern" class="input">
+        <option value="">Endereço automático</option>
+      </select>
       <input type="number" id="prodQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
       <input type="text" id="prodAddress" class="input" placeholder="Endereco (automatico se vazio)">
+      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto (câmera ou galeria)</p>
+      <input type="file" id="prodImages" class="input" accept="image/*" multiple capture="environment">
+      <div id="imagePreview" class="image-preview-grid"></div>
       <div class="modal-actions">
         <button id="salvarProdutoBtn" class="btn btn-primary">Salvar</button>
         <button id="cancelarProdutoBtn" class="btn btn-secondary">Cancelar</button>
@@ -45,12 +51,14 @@
   <script type="module">
     import { auth } from "./js/firebase.js";
     import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { createProduct, updateProduct, deleteProduct, listenProducts, getCategories } from "./js/database.js";
+    import { createProduct, updateProduct, deleteProduct, listenProducts, getCategories, getAddressPatterns } from "./js/database.js";
     import { showToast } from "./js/utils.js";
 
     onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
 
     let produtos = [];
+    let categorias = [];
+    let padroes = [];
     let editingId = null;
 
     function renderizarLista(lista = produtos) {
@@ -64,7 +72,7 @@
         <div class="card product-row">
           <div>
             <strong>${p.name || ''}</strong> <small>${p.sku || ''}</small><br>
-            <small style="color:var(--text-light);">End: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
+            <small style="color:var(--text-light);">Categoria: ${p.categoryName || 'Sem categoria'} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
           </div>
           <div class="row-actions">
             <button class="btn btn-secondary edit-btn" data-id="${p.id}">Editar</button>
@@ -83,12 +91,24 @@
 
     async function carregarCategorias() {
       const select = document.getElementById('prodCategory');
-      const categorias = await getCategories();
+      categorias = await getCategories();
       select.innerHTML = '<option value="">Sem categoria</option>';
       categorias.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.id;
         opt.textContent = cat.name;
+        select.appendChild(opt);
+      });
+    }
+
+    async function carregarPadroes() {
+      const select = document.getElementById('prodPattern');
+      padroes = await getAddressPatterns();
+      select.innerHTML = '<option value="">Endereço automático</option>';
+      padroes.forEach(pattern => {
+        const opt = document.createElement('option');
+        opt.value = pattern.id;
+        opt.textContent = `${pattern.name} — ${pattern.format}`;
         select.appendChild(opt);
       });
     }
@@ -107,8 +127,11 @@
       document.getElementById('prodName').value = '';
       document.getElementById('prodSku').value = '';
       document.getElementById('prodCategory').value = '';
+      document.getElementById('prodPattern').value = '';
       document.getElementById('prodQty').value = '0';
       document.getElementById('prodAddress').value = '';
+      document.getElementById('prodImages').value = '';
+      document.getElementById('imagePreview').innerHTML = '';
     }
 
     function abrirEdicao(id) {
@@ -119,8 +142,11 @@
       document.getElementById('prodName').value = prod.name || '';
       document.getElementById('prodSku').value = prod.sku || '';
       document.getElementById('prodCategory').value = prod.categoryId || '';
+      document.getElementById('prodPattern').value = prod.addressPatternId || '';
       document.getElementById('prodQty').value = prod.quantity || 0;
       document.getElementById('prodAddress').value = prod.address || '';
+      document.getElementById('prodImages').value = '';
+      document.getElementById('imagePreview').innerHTML = '';
       abrirModal();
     }
 
@@ -129,6 +155,14 @@
       await deleteProduct(id);
       showToast('Produto removido');
     }
+
+    function previewImages() {
+      const files = Array.from(document.getElementById('prodImages').files);
+      const preview = document.getElementById('imagePreview');
+      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
+    }
+
+    document.getElementById('prodImages').addEventListener('change', previewImages);
 
     document.getElementById('novoProdutoBtn').addEventListener('click', () => {
       limparFormulario();
@@ -141,20 +175,27 @@
       const name = document.getElementById('prodName').value.trim();
       if (!name) return showToast('Nome obrigatorio', 'error');
 
+      const categoryId = document.getElementById('prodCategory').value || null;
+      const categoryName = categoryId ? (categorias.find(cat => cat.id === categoryId)?.name || '') : '';
+      const addressPatternId = document.getElementById('prodPattern').value || null;
+      const imageFiles = Array.from(document.getElementById('prodImages').files);
+
       const data = {
         name,
         sku: document.getElementById('prodSku').value.trim(),
-        categoryId: document.getElementById('prodCategory').value || null,
+        categoryId,
+        categoryName,
+        addressPatternId,
         quantity: Number(document.getElementById('prodQty').value) || 0,
         address: document.getElementById('prodAddress').value.trim() || null
       };
 
       try {
         if (editingId) {
-          await updateProduct(editingId, data);
+          await updateProduct(editingId, data, imageFiles);
           showToast('Produto atualizado');
         } else {
-          await createProduct(data);
+          await createProduct(data, imageFiles);
           showToast('Produto criado');
         }
         fecharModal();
@@ -174,6 +215,7 @@
     });
 
     carregarCategorias();
+    carregarPadroes();
     listenProducts((items) => {
       produtos = items;
       renderizarLista();
