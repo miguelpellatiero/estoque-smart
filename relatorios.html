@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Relatórios</title>
   <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <meta name="theme-color" content="#6366f1">
 </head>
 <body>
   <div class="header">
@@ -27,31 +27,16 @@
   </nav>
 
   <script type="module">
-    import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-    import { exportToExcel, showToast } from "./js/utils.js";
+    import { requireAuth } from './js/auth.js';
+    import { getReportData } from './js/database.js';
+    import { exportToCsv, showToast } from './js/utils.js';
 
-    onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
+    requireAuth();
 
     let dadosRelatorio = [];
 
-    async function carregarDados() {
-      const q = query(collection(db, 'products'), where('active', '==', true));
-      const snapshot = await getDocs(q);
-      dadosRelatorio = [];
-
-      snapshot.forEach(docSnap => {
-        const p = docSnap.data();
-        dadosRelatorio.push({
-          SKU: p.sku || '',
-          Nome: p.name || '',
-          Categoria: p.categoryName || p.categoryId || '',
-          Quantidade: p.quantity || 0,
-          Endereco: p.address || ''
-        });
-      });
-
+    function carregarDados() {
+      dadosRelatorio = getReportData();
       const tabela = document.getElementById('tabelaRelatorio');
       if (dadosRelatorio.length === 0) {
         tabela.innerHTML = '<div class="card"><p>Nenhum produto para exibir.</p></div>';
@@ -80,8 +65,8 @@
     }
 
     document.getElementById('exportBtn').addEventListener('click', () => {
-      if (dadosRelatorio.length === 0) return showToast('Nenhum dado', 'error');
-      exportToExcel(dadosRelatorio);
+      if (dadosRelatorio.length === 0) return showToast('Nenhum dado disponível', 'error');
+      exportToCsv(dadosRelatorio, 'relatorio_estoque');
       showToast('Exportado com sucesso');
     });
 

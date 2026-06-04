@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Login</title>
   <link rel="stylesheet" href="css/style.css">
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#6366f1">
 </head>
 <body>
@@ -13,18 +12,18 @@
     <section class="auth-panel">
       <div class="brand-mark">SS</div>
       <h1>SmartStock</h1>
-      <p class="auth-subtitle">Controle de estoque simples para sua equipe.</p>
+      <p class="auth-subtitle">Sistema de estoque local e rápido.</p>
 
       <div id="loginForm">
         <input type="email" id="loginEmail" class="input" placeholder="E-mail" autocomplete="email">
         <input type="password" id="loginPassword" class="input" placeholder="Senha" autocomplete="current-password">
         <button class="btn btn-primary btn-block" onclick="handleLogin()">Entrar</button>
         <button class="btn btn-secondary btn-block" style="margin-top:8px;" onclick="handleDemoLogin()">Entrar como teste</button>
-        <button class="link-button" onclick="showRegister()">Criar uma conta</button>
+        <button class="link-button" onclick="showRegister()">Criar conta</button>
       </div>
 
       <div id="registerForm" style="display:none;">
-        <input type="text" id="regName" class="input" placeholder="Nome" autocomplete="name">
+        <input type="text" id="regName" class="input" placeholder="Nome completo" autocomplete="name">
         <input type="email" id="regEmail" class="input" placeholder="E-mail" autocomplete="email">
         <input type="password" id="regPassword" class="input" placeholder="Senha" autocomplete="new-password">
         <button class="btn btn-primary btn-block" onclick="handleRegister()">Cadastrar</button>
@@ -34,20 +33,8 @@
   </main>
 
   <script type="module">
-    import { loginUser, registerUser } from "./js/auth.js";
-    import { showToast } from "./js/utils.js";
-
-    function getFirebaseMessage(error) {
-      const code = error?.code || '';
-      const messages = {
-        'auth/operation-not-allowed': 'Ative Email/Senha no Firebase Authentication.',
-        'auth/invalid-credential': 'E-mail ou senha invalidos.',
-        'auth/email-already-in-use': 'Este e-mail ja existe. Tente entrar com a senha cadastrada.',
-        'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
-        'auth/network-request-failed': 'Falha de rede ao conectar no Firebase.'
-      };
-      return messages[code] || error?.message || 'Erro ao conectar no Firebase.';
-    }
+    import { loginUser, registerUser } from './js/auth.js';
+    import { showToast } from './js/utils.js';
 
     window.showRegister = function() {
       document.getElementById('loginForm').style.display = 'none';
@@ -67,8 +54,8 @@
       try {
         await loginUser(email, password);
         window.location.href = 'dashboard.html';
-      } catch (e) {
-        showToast(getFirebaseMessage(e), 'error');
+      } catch (error) {
+        showToast(error.message || 'Erro ao efetuar login', 'error');
       }
     };
 
@@ -81,25 +68,17 @@
       try {
         await registerUser(email, password, name);
         window.location.href = 'dashboard.html';
-      } catch (e) {
-        showToast(getFirebaseMessage(e), 'error');
+      } catch (error) {
+        showToast(error.message || 'Erro ao cadastrar usuário', 'error');
       }
     };
 
     window.handleDemoLogin = async function() {
-      const demoEmail = 'teste@smartstock.com';
-      const demoPassword = '123456';
-
       try {
-        await loginUser(demoEmail, demoPassword);
+        await loginUser('admin@smartstock.com', '123456');
         window.location.href = 'dashboard.html';
-      } catch (loginError) {
-        try {
-          await registerUser(demoEmail, demoPassword, 'Usuário Teste');
-          window.location.href = 'dashboard.html';
-        } catch (registerError) {
-          showToast(getFirebaseMessage(registerError || loginError), 'error');
-        }
+      } catch (error) {
+        showToast('Falha ao entrar como teste', 'error');
       }
     };
   </script>

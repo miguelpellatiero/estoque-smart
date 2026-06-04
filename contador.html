@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Contador</title>
   <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#6366f1">
 </head>
 <body>
   <div class="header">
@@ -24,14 +25,8 @@
       <select id="quickCategory" class="input">
         <option value="">Sem categoria</option>
       </select>
-      <select id="quickPattern" class="input">
-        <option value="">Endereço automático</option>
-      </select>
       <input type="number" id="quickQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
-      <input type="text" id="quickAddress" class="input" placeholder="Endereço (automático se vazio)">
-      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto</p>
-      <input type="file" id="quickImages" class="input" accept="image/*" multiple capture="environment">
-      <div id="quickPreview" class="image-preview-grid"></div>
+      <input type="text" id="quickAddress" class="input" placeholder="Endereço">
       <div class="modal-actions" style="margin-top:12px;">
         <button id="saveQuickProductBtn" class="btn btn-primary">Salvar produto</button>
         <button id="cancelQuickCreateBtn" class="btn btn-secondary">Cancelar</button>
@@ -52,9 +47,6 @@
         <button id="plusBtn" class="counter-btn counter-btn-plus">+</button>
       </div>
       <input type="number" id="manualQty" class="input" min="0" style="margin-top:20px;" placeholder="Digitar quantidade">
-      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos da contagem</p>
-      <input type="file" id="countImages" class="input" accept="image/*" multiple capture="environment">
-      <div id="countPreview" class="image-preview-grid"></div>
       <button id="confirmBtn" class="btn btn-primary btn-block" style="margin-top:16px;">Confirmar contagem</button>
       <button id="clearBtn" class="btn btn-secondary btn-block" style="margin-top:8px;">Limpar</button>
     </div>
@@ -68,48 +60,22 @@
   </nav>
 
   <script type="module">
-    import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { doc, getDoc } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-    import { searchProducts, updateProductCount, createProduct, getCategories, getAddressPatterns } from "./js/database.js";
-    import { showToast } from "./js/utils.js";
+    import { requireAuth } from './js/auth.js';
+    import { getCategories, createProduct, getProducts, searchProducts, updateProduct } from './js/database.js';
+    import { showToast } from './js/utils.js';
 
-    onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
+    requireAuth();
 
     let selectedProduct = null;
     let countedQty = 0;
     let categorias = [];
-    let padroes = [];
 
-    function previewQuickImages() {
-      const files = Array.from(document.getElementById('quickImages').files);
-      const preview = document.getElementById('quickPreview');
-      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
-    }
+    const searchInput = document.getElementById('searchProduct');
+    const searchResults = document.getElementById('searchResults');
 
-    function previewCountImages() {
-      const files = Array.from(document.getElementById('countImages').files);
-      const preview = document.getElementById('countPreview');
-      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
-    }
-
-    function updateDisplay() {
-      document.getElementById('countDisplay').textContent = countedQty;
-      document.getElementById('manualQty').value = countedQty;
-    }
-
-    function clearSelection() {
-      selectedProduct = null;
-      countedQty = 0;
-      document.getElementById('selectedProductInfo').style.display = 'none';
-      document.getElementById('counterArea').style.display = 'none';
-      document.getElementById('searchProduct').value = '';
-      document.getElementById('searchResults').innerHTML = '';
-      updateDisplay();
-    }
-    async function carregarCategorias() {
+    function carregarCategorias() {
+      categorias = getCategories();
       const select = document.getElementById('quickCategory');
-      categorias = await getCategories();
       select.innerHTML = '<option value="">Sem categoria</option>';
       categorias.forEach(cat => {
         const opt = document.createElement('option');
@@ -119,104 +85,95 @@
       });
     }
 
-    async function carregarPadroes() {
-      const select = document.getElementById('quickPattern');
-      padroes = await getAddressPatterns();
-      select.innerHTML = '<option value="">Endereço automático</option>';
-      padroes.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = `${p.name} — ${p.format}`;
-        select.appendChild(opt);
+    function mostrarProdutoSelecionado() {
+      if (!selectedProduct) return;
+      document.getElementById('productName').textContent = selectedProduct.name;
+      document.getElementById('productSku').textContent = 'SKU: ' + (selectedProduct.sku || '');
+      document.getElementById('productAddress').textContent = 'Endereço: ' + (selectedProduct.address || 'N/A');
+      document.getElementById('productCurrentQty').textContent = `${countedQty} un`;
+      document.getElementById('selectedProductInfo').style.display = 'block';
+      document.getElementById('counterArea').style.display = 'block';
+    }
+
+    function resetSelection() {
+      selectedProduct = null;
+      countedQty = 0;
+      document.getElementById('selectedProductInfo').style.display = 'none';
+      document.getElementById('counterArea').style.display = 'none';
+      searchInput.value = '';
+      searchResults.innerHTML = '';
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      document.getElementById('countDisplay').textContent = countedQty;
+      document.getElementById('manualQty').value = countedQty;
+    }
+
+    function renderSearchResults(results) {
+      if (!results.length) {
+        searchResults.innerHTML = '<div class="card"><p>Nenhum produto encontrado.</p></div>';
+        return;
+      }
+      searchResults.innerHTML = results.map(p => `
+        <div class="card search-result" data-id="${p.id}" style="cursor:pointer;">
+          <strong>${p.name}</strong><br>
+          <small>SKU: ${p.sku || ''} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity}</small>
+        </div>
+      `).join('');
+
+      searchResults.querySelectorAll('.search-result').forEach(item => {
+        item.addEventListener('click', () => {
+          selectedProduct = getProducts().find(product => product.id === item.dataset.id);
+          if (!selectedProduct) return showToast('Produto não encontrado', 'error');
+          countedQty = Number(selectedProduct.quantity) || 0;
+          mostrarProdutoSelecionado();
+          searchResults.innerHTML = '';
+        });
       });
     }
 
     document.getElementById('quickCreateBtn').addEventListener('click', () => {
       document.getElementById('quickCreateCard').style.display = 'block';
-      document.getElementById('searchProduct').blur();
+      searchInput.blur();
     });
 
     document.getElementById('cancelQuickCreateBtn').addEventListener('click', () => {
       document.getElementById('quickCreateCard').style.display = 'none';
-      document.getElementById('quickImages').value = '';
-      document.getElementById('quickPreview').innerHTML = '';
+      document.getElementById('quickName').value = '';
+      document.getElementById('quickSku').value = '';
+      document.getElementById('quickQty').value = '0';
+      document.getElementById('quickAddress').value = '';
     });
 
-    document.getElementById('quickImages').addEventListener('change', previewQuickImages);
-    document.getElementById('countImages').addEventListener('change', previewCountImages);
-
-    document.getElementById('saveQuickProductBtn').addEventListener('click', async () => {
+    document.getElementById('saveQuickProductBtn').addEventListener('click', () => {
       const name = document.getElementById('quickName').value.trim();
       if (!name) return showToast('Informe o nome do produto', 'error');
 
       const categoryId = document.getElementById('quickCategory').value || null;
       const categoryName = categoryId ? (categorias.find(cat => cat.id === categoryId)?.name || '') : '';
-      const patternId = document.getElementById('quickPattern').value || null;
-      const imageFiles = Array.from(document.getElementById('quickImages').files);
-
-      const data = {
+      const product = {
         name,
         sku: document.getElementById('quickSku').value.trim(),
         categoryId,
         categoryName,
         quantity: Number(document.getElementById('quickQty').value) || 0,
-        address: document.getElementById('quickAddress').value.trim() || null,
-        addressPatternId: patternId
+        address: document.getElementById('quickAddress').value.trim() || ''
       };
 
-      try {
-        await createProduct(data, imageFiles);
-        showToast('Produto criado e disponível para contagem');
-        document.getElementById('quickCreateCard').style.display = 'none';
-        document.getElementById('quickName').value = '';
-        document.getElementById('quickSku').value = '';
-        document.getElementById('quickQty').value = '0';
-        document.getElementById('quickAddress').value = '';
-        document.getElementById('quickImages').value = '';
-        document.getElementById('quickPreview').innerHTML = '';
-      } catch (e) {
-        showToast('Erro: ' + (e.message || e), 'error');
-      }
+      createProduct(product);
+      showToast('Produto criado');
+      document.getElementById('quickCreateCard').style.display = 'none';
+      document.getElementById('quickName').value = '';
+      document.getElementById('quickSku').value = '';
+      document.getElementById('quickQty').value = '0';
+      document.getElementById('quickAddress').value = '';
     });
 
-    carregarCategorias();
-    carregarPadroes();
-
-    async function selectProduct(id) {
-      const docSnap = await getDoc(doc(db, 'products', id));
-      if (!docSnap.exists()) return showToast('Produto nao encontrado', 'error');
-      selectedProduct = { id, ...docSnap.data() };
-      countedQty = Number(selectedProduct.quantity) || 0;
-
-      document.getElementById('productName').textContent = selectedProduct.name || '';
-      document.getElementById('productSku').textContent = 'SKU: ' + (selectedProduct.sku || '');
-      document.getElementById('productAddress').textContent = 'Endereço: ' + (selectedProduct.address || 'Sem endereço');
-      document.getElementById('productCurrentQty').textContent = countedQty + ' un';
-      document.getElementById('selectedProductInfo').style.display = 'block';
-      document.getElementById('counterArea').style.display = 'block';
-      document.getElementById('searchResults').innerHTML = '';
-      updateDisplay();
-    }
-
-    document.getElementById('searchProduct').addEventListener('input', async (e) => {
-      const term = e.target.value.trim();
-      const container = document.getElementById('searchResults');
-      if (term.length < 2) {
-        container.innerHTML = '';
-        return;
-      }
-
-      const results = await searchProducts(term);
-      container.innerHTML = results.map(p => `
-        <div class="card search-result" data-id="${p.id}" style="cursor:pointer;">
-          <strong>${p.name || ''}</strong><br>
-          <small>SKU: ${p.sku || ''} | End: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
-        </div>
-      `).join('');
-
-      container.querySelectorAll('.search-result').forEach(item => {
-        item.addEventListener('click', () => selectProduct(item.dataset.id));
-      });
+    searchInput.addEventListener('input', (event) => {
+      const term = event.target.value.trim();
+      const results = term ? searchProducts(term) : [];
+      renderSearchResults(results);
     });
 
     document.getElementById('minusBtn').addEventListener('click', () => {
@@ -229,24 +186,22 @@
       updateDisplay();
     });
 
-    document.getElementById('manualQty').addEventListener('input', (e) => {
-      countedQty = Math.max(0, Number(e.target.value) || 0);
-      document.getElementById('countDisplay').textContent = countedQty;
+    document.getElementById('manualQty').addEventListener('input', (event) => {
+      countedQty = Math.max(0, Number(event.target.value) || 0);
+      updateDisplay();
     });
 
-    document.getElementById('confirmBtn').addEventListener('click', async () => {
-      if (!selectedProduct) return;
-      const imageFiles = Array.from(document.getElementById('countImages').files);
-      try {
-        await updateProductCount(selectedProduct.id, countedQty, imageFiles);
-        showToast('Contagem salva');
-        clearSelection();
-      } catch (e) {
-        showToast('Erro: ' + (e.message || e), 'error');
-      }
+    document.getElementById('confirmBtn').addEventListener('click', () => {
+      if (!selectedProduct) return showToast('Selecione um produto', 'error');
+      selectedProduct.quantity = countedQty;
+      updateProduct(selectedProduct.id, selectedProduct);
+      showToast('Contagem salva');
+      resetSelection();
     });
 
-    document.getElementById('clearBtn').addEventListener('click', clearSelection);
+    document.getElementById('clearBtn').addEventListener('click', resetSelection);
+
+    carregarCategorias();
   </script>
 </body>
 </html>

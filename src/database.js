@@ -5,6 +5,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { db, auth } from "./firebase.js";
 
+if (!db || !auth) {
+  console.warn('Aviso: `db` ou `auth` não inicializados corretamente. Verifique src/firebase.js');
+}
+
 const productsRef = collection(db, 'products');
 const categoriesRef = collection(db, 'categories');
 const movementsRef = collection(db, 'movements');
@@ -31,7 +35,7 @@ export async function createProduct(productData, photoFiles = []) {
     active: true,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    createdBy: auth.currentUser.uid
+    createdBy: auth.currentUser?.uid || null
   };
 
   const docRef = await addDoc(productsRef, dataToSave);
@@ -43,7 +47,7 @@ export async function createProduct(productData, photoFiles = []) {
     quantityChange: quantity,
     previousQuantity: 0,
     newQuantity: quantity,
-    performedBy: auth.currentUser.uid,
+    performedBy: auth.currentUser?.uid || null,
     createdAt: serverTimestamp()
   };
 
@@ -91,7 +95,7 @@ export async function updateProduct(id, data, photoFiles = []) {
         quantityChange: newQuantity - oldQuantity,
         previousQuantity: oldQuantity,
         newQuantity,
-        performedBy: auth.currentUser.uid,
+        performedBy: auth.currentUser?.uid || null,
         createdAt: serverTimestamp()
       };
     }
@@ -330,7 +334,7 @@ export async function updateProductCount(productId, newQuantity, photoFiles = []
     quantityChange: newQuantity - previousQuantity,
     previousQuantity,
     newQuantity,
-    performedBy: auth.currentUser.uid,
+    performedBy: auth.currentUser?.uid || null,
     address: currentProduct.address || '',
     createdAt: serverTimestamp()
   };

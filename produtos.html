@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Produtos</title>
   <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#6366f1">
 </head>
 <body>
   <div class="header">
@@ -26,15 +27,9 @@
       <select id="prodCategory" class="input">
         <option value="">Sem categoria</option>
       </select>
-      <select id="prodPattern" class="input">
-        <option value="">Endereço automático</option>
-      </select>
       <input type="number" id="prodQty" class="input" placeholder="Quantidade inicial" value="0" min="0">
-      <input type="text" id="prodAddress" class="input" placeholder="Endereço (automático se vazio)">
-      <p style="color:var(--text-light); font-size:13px; margin-bottom:8px;">Fotos do produto (câmera ou galeria)</p>
-      <input type="file" id="prodImages" class="input" accept="image/*" multiple capture="environment">
-      <div id="imagePreview" class="image-preview-grid"></div>
-      <div class="modal-actions">
+      <input type="text" id="prodAddress" class="input" placeholder="Endereço">
+      <div class="modal-actions" style="margin-top:16px;">
         <button id="salvarProdutoBtn" class="btn btn-primary">Salvar</button>
         <button id="cancelarProdutoBtn" class="btn btn-secondary">Cancelar</button>
       </div>
@@ -49,21 +44,19 @@
   </nav>
 
   <script type="module">
-    import { auth } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { createProduct, updateProduct, deleteProduct, listenProducts, getCategories, getAddressPatterns } from "./js/database.js";
-    import { showToast } from "./js/utils.js";
+    import { requireAuth } from './js/auth.js';
+    import { getProducts, getCategories, createProduct, updateProduct, deleteProduct, searchProducts } from './js/database.js';
+    import { showToast } from './js/utils.js';
 
-    onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
+    requireAuth();
 
     let produtos = [];
     let categorias = [];
-    let padroes = [];
     let editingId = null;
 
     function renderizarLista(lista = produtos) {
       const container = document.getElementById('listaProdutos');
-      if (lista.length === 0) {
+      if (!lista.length) {
         container.innerHTML = '<div class="card"><p>Nenhum produto encontrado.</p></div>';
         return;
       }
@@ -71,8 +64,8 @@
       container.innerHTML = lista.map(p => `
         <div class="card product-row">
           <div>
-            <strong>${p.name || ''}</strong> <small>${p.sku || ''}</small><br>
-            <small style="color:var(--text-light);">Categoria: ${p.categoryName || 'Sem categoria'} | Endereço: ${p.address || 'N/A'} | Qtd: ${p.quantity || 0}</small>
+            <strong>${p.name}</strong> <small>${p.sku || ''}</small><br>
+            <small style="color:var(--text-light);">Categoria: ${p.categoryName || 'Sem categoria'} | Endereço: ${p.address || 'N/A'} | Qtd: ${p.quantity}</small>
           </div>
           <div class="row-actions">
             <button class="btn btn-secondary edit-btn" data-id="${p.id}">Editar</button>
@@ -81,34 +74,18 @@
         </div>
       `).join('');
 
-      container.querySelectorAll('.edit-btn').forEach(btn => {
-        btn.addEventListener('click', () => abrirEdicao(btn.dataset.id));
-      });
-      container.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', () => excluirProduto(btn.dataset.id));
-      });
+      container.querySelectorAll('.edit-btn').forEach(btn => btn.addEventListener('click', () => abrirEdicao(btn.dataset.id)));
+      container.querySelectorAll('.delete-btn').forEach(btn => btn.addEventListener('click', () => excluirProduto(btn.dataset.id)));
     }
 
-    async function carregarCategorias() {
+    function carregarCategorias() {
+      categorias = getCategories();
       const select = document.getElementById('prodCategory');
-      categorias = await getCategories();
       select.innerHTML = '<option value="">Sem categoria</option>';
       categorias.forEach(cat => {
         const opt = document.createElement('option');
         opt.value = cat.id;
         opt.textContent = cat.name;
-        select.appendChild(opt);
-      });
-    }
-
-    async function carregarPadroes() {
-      const select = document.getElementById('prodPattern');
-      padroes = await getAddressPatterns();
-      select.innerHTML = '<option value="">Endereço automático</option>';
-      padroes.forEach(pattern => {
-        const opt = document.createElement('option');
-        opt.value = pattern.id;
-        opt.textContent = `${pattern.name} — ${pattern.format}`;
         select.appendChild(opt);
       });
     }
@@ -127,11 +104,8 @@
       document.getElementById('prodName').value = '';
       document.getElementById('prodSku').value = '';
       document.getElementById('prodCategory').value = '';
-      document.getElementById('prodPattern').value = '';
       document.getElementById('prodQty').value = '0';
       document.getElementById('prodAddress').value = '';
-      document.getElementById('prodImages').value = '';
-      document.getElementById('imagePreview').innerHTML = '';
     }
 
     function abrirEdicao(id) {
@@ -139,30 +113,21 @@
       if (!prod) return;
       editingId = id;
       document.getElementById('modalTitle').textContent = 'Editar Produto';
-      document.getElementById('prodName').value = prod.name || '';
+      document.getElementById('prodName').value = prod.name;
       document.getElementById('prodSku').value = prod.sku || '';
       document.getElementById('prodCategory').value = prod.categoryId || '';
-      document.getElementById('prodPattern').value = prod.addressPatternId || '';
-      document.getElementById('prodQty').value = prod.quantity || 0;
+      document.getElementById('prodQty').value = prod.quantity;
       document.getElementById('prodAddress').value = prod.address || '';
-      document.getElementById('prodImages').value = '';
-      document.getElementById('imagePreview').innerHTML = '';
       abrirModal();
     }
 
-    async function excluirProduto(id) {
+    function excluirProduto(id) {
       if (!confirm('Desativar este produto?')) return;
-      await deleteProduct(id);
+      deleteProduct(id);
+      produtos = getProducts();
+      renderizarLista(produtos);
       showToast('Produto removido');
     }
-
-    function previewImages() {
-      const files = Array.from(document.getElementById('prodImages').files);
-      const preview = document.getElementById('imagePreview');
-      preview.innerHTML = files.map(file => `<img src="${URL.createObjectURL(file)}" class="photo-preview">`).join('');
-    }
-
-    document.getElementById('prodImages').addEventListener('change', previewImages);
 
     document.getElementById('novoProdutoBtn').addEventListener('click', () => {
       limparFormulario();
@@ -171,74 +136,48 @@
 
     document.getElementById('cancelarProdutoBtn').addEventListener('click', fecharModal);
 
-    document.getElementById('salvarProdutoBtn').addEventListener('click', async () => {
+    document.getElementById('salvarProdutoBtn').addEventListener('click', () => {
       const name = document.getElementById('prodName').value.trim();
       if (!name) return showToast('Nome obrigatório', 'error');
 
       const categoryId = document.getElementById('prodCategory').value || null;
       const categoryName = categoryId ? (categorias.find(cat => cat.id === categoryId)?.name || '') : '';
-      const addressPatternId = document.getElementById('prodPattern').value || null;
-      const imageFiles = Array.from(document.getElementById('prodImages').files);
-      const sku = document.getElementById('prodSku').value.trim();
-      const address = document.getElementById('prodAddress').value.trim() || null;
-
-      const data = {
+      const product = {
         name,
-        sku,
+        sku: document.getElementById('prodSku').value.trim(),
         categoryId,
         categoryName,
-        addressPatternId,
         quantity: Number(document.getElementById('prodQty').value) || 0,
-        address
+        address: document.getElementById('prodAddress').value.trim() || ''
       };
 
       try {
         if (editingId) {
-          await updateProduct(editingId, data, imageFiles);
-          const updatedIndex = produtos.findIndex(p => p.id === editingId);
-          if (updatedIndex !== -1) {
-            produtos[updatedIndex] = { ...produtos[updatedIndex], ...data };
-            renderizarLista(produtos);
-          }
+          updateProduct(editingId, product);
           showToast('Produto atualizado');
         } else {
-          const productId = await createProduct(data, imageFiles);
-          produtos.unshift({
-            id: productId,
-            ...data,
-            active: true,
-            nameLower: name.toLowerCase(),
-            skuUpper: sku.toUpperCase(),
-            categoryNameLower: categoryName.toLowerCase(),
-            addressLower: (address || '').toLowerCase()
-          });
-          renderizarLista(produtos);
+          createProduct(product);
           showToast('Produto criado');
         }
+        produtos = getProducts();
+        renderizarLista(produtos);
         fecharModal();
         limparFormulario();
-      } catch (e) {
-        console.error('Erro ao salvar produto:', e);
-        showToast('Erro: ' + (e.message || e), 'error');
+      } catch (error) {
+        showToast(error.message || 'Erro ao salvar produto', 'error');
       }
     });
 
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase();
-      const filtrados = produtos.filter(p =>
-        (p.nameLower || p.name || '').toLowerCase().includes(term) ||
-        (p.sku || '').toLowerCase().includes(term) ||
-        (p.address || '').toLowerCase().includes(term)
-      );
-      renderizarLista(filtrados);
+    document.getElementById('searchInput').addEventListener('input', (event) => {
+      const term = event.target.value.trim();
+      const results = term ? searchProducts(term) : getProducts();
+      produtos = getProducts();
+      renderizarLista(results);
     });
 
     carregarCategorias();
-    carregarPadroes();
-    listenProducts((items) => {
-      produtos = items;
-      renderizarLista();
-    });
+    produtos = getProducts();
+    renderizarLista(produtos);
   </script>
 </body>
 </html>

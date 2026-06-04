@@ -9,28 +9,36 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 import { auth, db } from "./firebase.js";
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    localStorage.setItem('user', JSON.stringify({
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName
-    }));
+try {
+  onAuthStateChanged(auth, async (user) => {
+    try {
+      if (user) {
+        localStorage.setItem('user', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        }));
 
-    if (window.location.pathname.includes('index.html') ||
-        window.location.pathname === '/' ||
-        window.location.pathname === '/index.html') {
-      window.location.href = 'dashboard.html';
+        if (window.location.pathname.includes('index.html') ||
+            window.location.pathname === '/' ||
+            window.location.pathname === '/index.html') {
+          window.location.href = 'dashboard.html';
+        }
+      } else {
+        localStorage.removeItem('user');
+        if (!window.location.pathname.includes('index.html') &&
+            window.location.pathname !== '/' &&
+            window.location.pathname !== '/index.html') {
+          window.location.href = 'index.html';
+        }
+      }
+    } catch (innerErr) {
+      console.error('Erro no onAuthStateChanged handler:', innerErr);
     }
-  } else {
-    localStorage.removeItem('user');
-    if (!window.location.pathname.includes('index.html') &&
-        window.location.pathname !== '/' &&
-        window.location.pathname !== '/index.html') {
-      window.location.href = 'index.html';
-    }
-  }
-});
+  });
+} catch (err) {
+  console.error('Falha ao inicializar listener de auth:', err);
+}
 
 export async function loginUser(email, password) {
   try {

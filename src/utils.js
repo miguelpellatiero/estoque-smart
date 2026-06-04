@@ -42,4 +42,25 @@ export function showToast(message, type = 'success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
+export function logError(err, context) {
+  try {
+    console.error('App error', context || '', err);
+    showToast((err && err.message) ? err.message : String(err), 'error');
+  } catch (e) {
+    console.error('Falha ao logar erro', e);
+  }
+}
+
+function registerGlobalHandlers() {
+  if (typeof window === 'undefined') return;
+  window.addEventListener('error', (ev) => {
+    logError(ev.error || ev.message || ev, 'window.error');
+  });
+  window.addEventListener('unhandledrejection', (ev) => {
+    logError(ev.reason || ev, 'unhandledrejection');
+  });
+}
+
+registerGlobalHandlers();
+
 export default { formatDate, escapeHtml, exportToExcel, showToast };

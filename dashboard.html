@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Dashboard</title>
   <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#6366f1">
 </head>
 <body>
   <div class="header">
@@ -13,10 +14,9 @@
   </div>
 
   <div class="page">
-    <!-- Cards de estatísticas -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px;">
       <div class="card" style="text-align:center;">
-        <p style="color:var(--text-light); font-size:14px;">Total Produtos</p>
+        <p style="color:var(--text-light); font-size:14px;">Total de Produtos</p>
         <p id="totalProducts" style="font-size:32px; font-weight:800;">0</p>
       </div>
       <div class="card" style="text-align:center;">
@@ -25,7 +25,6 @@
       </div>
     </div>
 
-    <!-- Menu rápido -->
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
       <a href="produtos.html" class="card" style="text-decoration:none; color:var(--text);">
         <div style="font-size:32px; margin-bottom:8px;">📦</div>
@@ -35,67 +34,45 @@
       <a href="contador.html" class="card" style="text-decoration:none; color:var(--text); background:#ecfdf5; border:2px solid var(--success);">
         <div style="font-size:32px; margin-bottom:8px;">🧮</div>
         <h3>Contador</h3>
-        <p style="color:var(--text-light); font-size:14px;">Iniciar inventário</p>
+        <p style="color:var(--text-light); font-size:14px;">Fazer inventário</p>
       </a>
       <a href="categorias.html" class="card" style="text-decoration:none; color:var(--text);">
         <div style="font-size:32px; margin-bottom:8px;">🗂️</div>
         <h3>Categorias</h3>
+        <p style="color:var(--text-light); font-size:14px;">Organizar itens</p>
       </a>
       <a href="relatorios.html" class="card" style="text-decoration:none; color:var(--text);">
         <div style="font-size:32px; margin-bottom:8px;">📈</div>
         <h3>Relatórios</h3>
+        <p style="color:var(--text-light); font-size:14px;">Exportar estoque</p>
       </a>
     </div>
 
     <button id="logoutBtn" class="btn btn-secondary btn-block" style="margin-top:24px;">Sair</button>
   </div>
 
-  <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <a href="dashboard.html" class="nav-item active">🏠 Início</a>
     <a href="produtos.html" class="nav-item">📦 Produtos</a>
     <a href="contador.html" class="nav-item">🧮 Contar</a>
-    <a href="relatorios.html" class="nav-item">📈 Mais</a>
+    <a href="relatorios.html" class="nav-item">📈 Relatórios</a>
   </nav>
 
   <script type="module">
-    import { auth, db } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { collection, query, where, getDocs, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
-    import { logoutUser, isMaster } from "./js/auth.js";
+    import { requireAuth, logoutUser, getCurrentUser } from './js/auth.js';
+    import { getProducts } from './js/database.js';
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) window.location.href = 'index.html';
-      document.getElementById('userAvatar').textContent = user.displayName?.charAt(0) || 'U';
+    const user = requireAuth();
+    if (user) {
+      document.getElementById('userAvatar').textContent = user.name.charAt(0).toUpperCase();
+    }
 
-      // Carregar estatísticas
-      const productsRef = collection(db, 'products');
-      const activeQ = query(productsRef, where('active', '==', true));
-      const snapshot = await getDocs(activeQ);
+    const products = getProducts();
+    const total = products.length;
+    const lowStock = products.filter(p => Number(p.quantity) < 5).length;
 
-      let total = snapshot.size;
-      let low = 0;
-      snapshot.forEach(doc => {
-        if (doc.data().quantity < 5) low++;
-      });
-
-      document.getElementById('totalProducts').textContent = total;
-      document.getElementById('lowStock').textContent = low;
-
-      // Mostrar link admin se master
-      const master = await isMaster();
-      if (master) {
-        const adminLink = document.createElement('a');
-        adminLink.href = 'admin.html';
-        adminLink.className = 'card';
-        adminLink.style.textDecoration = 'none';
-        adminLink.style.color = 'var(--text)';
-        adminLink.style.display = 'block';
-        adminLink.style.marginTop = '16px';
-        adminLink.innerHTML = '<div style="font-size:32px; margin-bottom:8px;">⚙️</div><h3>Administração</h3>';
-        document.querySelector('.page').insertBefore(adminLink, document.getElementById('logoutBtn'));
-      }
-    });
+    document.getElementById('totalProducts').textContent = total;
+    document.getElementById('lowStock').textContent = lowStock;
 
     document.getElementById('logoutBtn').addEventListener('click', logoutUser);
   </script>

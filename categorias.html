@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>SmartStock - Categorias</title>
   <link rel="stylesheet" href="css/style.css">
+  <meta name="theme-color" content="#6366f1">
 </head>
 <body>
   <div class="header">
@@ -28,43 +29,32 @@
   </nav>
 
   <script type="module">
-    import { auth } from "./js/firebase.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-    import { createCategory, listenCategories, updateCategory, deleteCategory } from "./js/database.js";
-    import { showToast } from "./js/utils.js";
+    import { requireAuth } from './js/auth.js';
+    import { getCategories, createCategory, updateCategory, deleteCategory } from './js/database.js';
+    import { showToast } from './js/utils.js';
 
-    onAuthStateChanged(auth, user => { if (!user) window.location.href = 'index.html'; });
+    requireAuth();
 
     const lista = document.getElementById('listaCategorias');
     const input = document.getElementById('categoryName');
     let editingCategoryId = null;
 
-    function limparFormulario() {
-      editingCategoryId = null;
-      input.value = '';
-      document.getElementById('addCategoryBtn').textContent = 'Adicionar';
-    }
-
-    function renderCategorias(snapshot) {
-      const categories = [];
-      snapshot.forEach(docSnap => categories.push({ id: docSnap.id, ...docSnap.data() }));
-      if (categories.length === 0) {
+    function renderCategorias() {
+      const categories = getCategories();
+      if (!categories.length) {
         lista.innerHTML = '<div class="card"><p>Nenhuma categoria cadastrada.</p></div>';
         return;
       }
 
-      lista.innerHTML = '';
-      categories.forEach(cat => {
-        lista.innerHTML += `
-          <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-            <div><strong>${cat.name}</strong></div>
-            <div class="row-actions">
-              <button class="btn btn-secondary edit-cat" data-id="${cat.id}" data-name="${cat.name}">Editar</button>
-              <button class="btn btn-danger delete-cat" data-id="${cat.id}">Excluir</button>
-            </div>
+      lista.innerHTML = categories.map(cat => `
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+          <div><strong>${cat.name}</strong></div>
+          <div class="row-actions">
+            <button class="btn btn-secondary edit-cat" data-id="${cat.id}" data-name="${cat.name}">Editar</button>
+            <button class="btn btn-danger delete-cat" data-id="${cat.id}">Excluir</button>
           </div>
-        `;
-      });
+        </div>
+      `).join('');
 
       lista.querySelectorAll('.edit-cat').forEach(button => {
         button.addEventListener('click', () => {
@@ -75,30 +65,38 @@
       });
 
       lista.querySelectorAll('.delete-cat').forEach(button => {
-        button.addEventListener('click', async () => {
+        button.addEventListener('click', () => {
           if (!confirm('Excluir esta categoria?')) return;
-          await deleteCategory(button.dataset.id);
+          deleteCategory(button.dataset.id);
+          renderCategorias();
           showToast('Categoria removida');
         });
       });
     }
 
-    document.getElementById('addCategoryBtn').addEventListener('click', async () => {
+    function resetForm() {
+      editingCategoryId = null;
+      input.value = '';
+      document.getElementById('addCategoryBtn').textContent = 'Adicionar';
+    }
+
+    document.getElementById('addCategoryBtn').addEventListener('click', () => {
       const name = input.value.trim();
       if (!name) return showToast('Informe o nome da categoria', 'error');
 
       if (editingCategoryId) {
-        await updateCategory(editingCategoryId, name);
+        updateCategory(editingCategoryId, name);
         showToast('Categoria atualizada');
       } else {
-        await createCategory(name);
+        createCategory(name);
         showToast('Categoria criada');
       }
 
-      limparFormulario();
+      resetForm();
+      renderCategorias();
     });
 
-    listenCategories(renderCategorias);
+    renderCategorias();
   </script>
 </body>
 </html>
